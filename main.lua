@@ -86,7 +86,8 @@ local player = {
   currentSurahNumber = 0,
   currentAyahIndex = 1,
   currentRepeatCount = 0,
-  currentAudioUrl = nil
+  currentAudioUrl = nil,
+  isIndividualZekr = false
 }
 
 local allSurahsData = {}
@@ -978,6 +979,7 @@ function playAzkarAudio(audioPath, title)
   lastIndex = mainFlipper.getDisplayedChild()
   mainFlipper.setDisplayedChild(2)
 
+  player.isIndividualZekr = false
   player.currentSurahName = title
   player.currentSurahNumber = 0
   player.currentAyahIndex = 1
@@ -1067,6 +1069,7 @@ function showZekrCounter(zekrItem)
         updateZekrPlayBtn()
         updatePlayButton(player.isPlaying)
       else
+        player.isIndividualZekr = true
         player.currentSurahName = zekrItem.zekrText:sub(1, 50) .. "..."
         player.currentSurahNumber = 0
         player.currentAyahIndex = 1
@@ -1082,7 +1085,11 @@ function showZekrCounter(zekrItem)
         setupMediaPlayer(targetUrl)
         announceAccess("جاري تشغيل صوت الذكر")
         Toast.makeText(activity, "جاري تشغيل الصوت...", Toast.LENGTH_SHORT).show()
-        updateZekrPlayBtn()
+
+        -- Use a timer to wait for preparation before updating button
+        Handler().postDelayed(Runnable{run=function()
+          if player.currentAudioUrl == targetUrl then updateZekrPlayBtn() end
+        end}, 1000)
       end
     end
   end
@@ -1136,7 +1143,7 @@ function displayRadios()
     table.insert(currentRadiosList, {
       title = "إذاعة القرآن الكريم من القاهرة",
       subtitle = "بث مباشر - القاهرة، مصر",
-      url = "https://stream.radiojar.com/8s5u8p3stwzuv"
+      url = "https://stream.radiojar.com/8s5u5tpdtwzuv"
     })
   end
 
@@ -1370,9 +1377,10 @@ function setupMediaPlayer(url)
 end
 
 function onAyahComplete()
-  if not player.currentSurahData or #player.currentSurahData == 0 then
+  if not player.currentSurahData or #player.currentSurahData == 0 or player.isIndividualZekr then
     statusText.text = "تم الانتهاء"
     updatePlayButton(false); player.isPlaying = false
+    player.currentRepeatCount = 0
     return
   end
 
