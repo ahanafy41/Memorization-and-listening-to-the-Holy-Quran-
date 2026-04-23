@@ -85,7 +85,8 @@ local player = {
   currentSurahName = "",
   currentSurahNumber = 0,
   currentAyahIndex = 1,
-  currentRepeatCount = 0
+  currentRepeatCount = 0,
+  currentAudioUrl = nil
 }
 
 local allSurahsData = {}
@@ -1040,22 +1041,49 @@ function showZekrCounter(zekrItem)
   if views.btnPlayZekr then
     setDesign(views.btnPlayZekr, colors.primary, dimens.radius)
     views.btnPlayZekr.setTextColor(Color.parseColor("#FFFFFF"))
+
+    local function updateZekrPlayBtn()
+      if player.currentAudioUrl == (AzkarAudioBaseURL .. zekrItem.audio) and player.media.isPlaying() then
+        views.btnPlayZekr.text = "⏸ إيقاف مؤقت"
+      else
+        views.btnPlayZekr.text = "▶ تشغيل الصوت"
+      end
+    end
+
+    updateZekrPlayBtn()
+
     views.btnPlayZekr.onClick = function()
-      player.currentSurahName = zekrItem.zekrText:sub(1, 50) .. "..."
-      player.currentSurahNumber = 0
-      player.currentAyahIndex = 1
-      player.currentRepeatCount = 0
-      player.currentSurahData = {{ audio = AzkarAudioBaseURL .. zekrItem.audio, numberInSurah = 1, text = zekrItem.zekrText }}
+      local targetUrl = AzkarAudioBaseURL .. zekrItem.audio
+      if player.currentAudioUrl == targetUrl then
+        if player.media.isPlaying() then
+          player.media.pause()
+          player.isPlaying = false
+          announceAccess("تم الإيقاف المؤقت")
+        else
+          player.media.start()
+          player.isPlaying = true
+          announceAccess("تم استئناف التشغيل")
+        end
+        updateZekrPlayBtn()
+        updatePlayButton(player.isPlaying)
+      else
+        player.currentSurahName = zekrItem.zekrText:sub(1, 50) .. "..."
+        player.currentSurahNumber = 0
+        player.currentAyahIndex = 1
+        player.currentRepeatCount = 0
+        player.currentSurahData = {{ audio = targetUrl, numberInSurah = 1, text = zekrItem.zekrText }}
 
-      playerTitle.text = "استماع للذكر"
-      ayahText.text = zekrItem.zekrText
-      reciterNameDisplay.text = "حصن المسلم"
-      progressText.text = "1 / 1"
+        playerTitle.text = "استماع للذكر"
+        ayahText.text = zekrItem.zekrText
+        reciterNameDisplay.text = "حصن المسلم"
+        progressText.text = "1 / 1"
 
-      player.isPlaying = true
-      setupMediaPlayer(AzkarAudioBaseURL .. zekrItem.audio)
-      announceAccess("جاري تشغيل صوت الذكر")
-      Toast.makeText(activity, "جاري تشغيل الصوت...", Toast.LENGTH_SHORT).show()
+        player.isPlaying = true
+        setupMediaPlayer(targetUrl)
+        announceAccess("جاري تشغيل صوت الذكر")
+        Toast.makeText(activity, "جاري تشغيل الصوت...", Toast.LENGTH_SHORT).show()
+        updateZekrPlayBtn()
+      end
     end
   end
 
@@ -1108,7 +1136,7 @@ function displayRadios()
     table.insert(currentRadiosList, {
       title = "إذاعة القرآن الكريم من القاهرة",
       subtitle = "بث مباشر - القاهرة، مصر",
-      url = "https://n02.radiojar.com/8s5u8p3st"
+      url = "https://stream.radiojar.com/8s5u8p3stwzuv"
     })
   end
 
@@ -1324,6 +1352,7 @@ end
 function setupMediaPlayer(url)
   stopAudio()
   player.isPlaying = true
+  player.currentAudioUrl = url
   local success, err = pcall(function() player.media.setDataSource(url); player.media.prepareAsync() end)
   if not success then
     statusText.text = "خطأ في رابط الصوت"
@@ -1394,7 +1423,7 @@ end
 
 function stopAudio()
   pcall(function() if player.media.isPlaying() then player.media.stop() end; player.media.reset() end)
-  player.isPlaying = false; updatePlayButton(false)
+  player.isPlaying = false; player.currentAudioUrl = nil; updatePlayButton(false)
 end
 
 -- ==========================================
