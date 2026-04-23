@@ -89,7 +89,14 @@ local player = {
 }
 
 local allSurahsData = {}
+local allAzkarData = {}
+local allRadiosData = {}
+local currentAzkarCategory = nil
+local currentViewType = "surahs"
+local lastIndex = 0
 local BaseURL = "https://api.alquran.cloud/v1"
+local AzkarURL = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/main/hisn_almuslim.json"
+
 
 local bookmarks = {}
 local lastProgress = {
@@ -201,7 +208,7 @@ layout = {
     id = "toolbarLayout",
     gravity = "center_vertical",
     elevation = "4dp",
-    { TextView, text = "المحفظ القرآني", textSize = "24sp", textColor = "#FFFFFF", style = "bold", layout_weight = 1, id = "toolbar_title" },
+    { TextView, text = "تطبيق القرآن الكريم", textSize = "24sp", style = "bold", layout_weight = 1, id = "toolbar_title" },
     { ImageView, src = "@android:drawable/ic_menu_day", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_theme", layout_marginRight = "12dp", onClick = function() toggleDarkMode() end },
     { ImageView, src = "@android:drawable/ic_input_get", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_bookmarks", layout_marginRight = "12dp", onClick = function() showBookmarksDialog() end },
     { ImageView, src = "@android:drawable/ic_menu_manage", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_settings", onClick = function() showSettingsDialog() end }
@@ -213,8 +220,36 @@ layout = {
     id = "mainFlipper",
     layout_width = "fill",
     layout_height = "fill",
+
+    -- PAGE 0: MAIN MENU
+    {
+      LinearLayout,
+      orientation = "vertical",
+      layout_width = "fill",
+      layout_height = "fill",
+      padding = "24dp",
+      gravity = "center",
+      id = "mainMenuPage",
+      { TextView, text = "القائمة الرئيسية", textSize = "24sp", style = "bold", layout_marginBottom = "30dp", id = "menuTitle" },
+      { Button, id = "btnGoQuran", text = "📖 القرآن الكريم (تصفح)", layout_width = "fill", layout_marginBottom = "16dp", onClick = function() showQuranSection() end },
+      { Button, id = "btnGoMemorize", text = "🔊 المحفظ القرآني (حفظ)", layout_width = "fill", layout_marginBottom = "16dp", onClick = function() showMemorizationSection() end },
+      { Button, id = "btnGoAzkar", text = "📿 الأذكار", layout_width = "fill", layout_marginBottom = "16dp", onClick = function() showAzkarSection() end },
+      { Button, id = "btnGoRadio", text = "📻 الراديو", layout_width = "fill", layout_marginBottom = "16dp", onClick = function() showRadioSection() end },
+      {
+        LinearLayout,
+        id = "resumeCard",
+        orientation = "vertical",
+        layout_width = "fill",
+        padding = "16dp",
+        layout_marginTop = "20dp",
+        visibility = View.GONE,
+        { TextView, id = "resumeTitle", text = "استئناف الحفظ", textSize = "18sp", style = "bold" },
+        { TextView, id = "resumeInfo", text = "", textSize = "16sp", layout_marginTop = "4dp" },
+        { Button, id = "btnResume", text = "متابعة من حيث توقفت", layout_width = "fill", layout_marginTop = "12dp", onClick = function() resumeLastProgress() end }
+      },
+    },
     
-    -- PAGE 1: SURAH LIST
+    -- PAGE 1: LIST VIEW
     {
       FrameLayout,
       layout_width = "fill",
@@ -228,18 +263,7 @@ layout = {
         layout_width = "fill",
         padding = "12dp",
         visibility = View.GONE,
-        {
-          LinearLayout,
-          id = "resumeCard",
-          orientation = "vertical",
-          layout_width = "fill",
-          padding = "16dp",
-          layout_marginBottom = "12dp",
-          visibility = View.GONE,
-          { TextView, id = "resumeTitle", text = "استئناف الحفظ", textSize = "18sp", style = "bold" },
-          { TextView, id = "resumeInfo", text = "", textSize = "16sp", layout_marginTop = "4dp" },
-          { Button, id = "btnResume", text = "متابعة من حيث توقفت", layout_width = "fill", layout_marginTop = "12dp", onClick = function() resumeLastProgress() end }
-        },
+        { TextView, id = "listTitle", text = "قائمة السور", textSize = "20sp", style = "bold", layout_marginBottom = "8dp", visibility = View.GONE },
         { EditText, id = "searchEdt", hint = "بحث باسم السورة أو الرقم...", layout_width = "fill", padding = "16dp", textSize = "18sp", singleLine = true, layout_marginBottom = "12dp" },
         { ListView, id = "surahList", layout_width = "fill", layout_height = "fill", dividerHeight = "0", selector = ColorDrawable(0), clipToPadding = false, paddingBottom = "24dp" }
       },
@@ -332,7 +356,24 @@ layout = {
           { Button, text = "التالي", id = "btnNext", layout_width = "90dp", textColor = "#FFFFFF", style = "bold", onClick = function() playNext() end }
         }
       },
-      { Button, text = "عودة للقائمة", id = "btnBack", layout_marginTop = "16dp", elevation = "0", onClick = function() stopAudio(); mainFlipper.showPrevious() end }
+      { Button, text = "عودة للقائمة", id = "btnBack", layout_marginTop = "16dp", elevation = "0", onClick = function() stopAudio(); mainFlipper.setDisplayedChild(lastIndex or 1) end }
+    },
+
+    -- PAGE 3: INDEX TYPE SELECTION
+    {
+      LinearLayout,
+      orientation = "vertical",
+      layout_width = "fill",
+      layout_height = "fill",
+      padding = "24dp",
+      gravity = "center",
+      id = "indexTypePage",
+      { TextView, text = "اختر طريقة التصفح", textSize = "24sp", style = "bold", layout_marginBottom = "30dp", id = "indexTitle" },
+      { Button, id = "btnIndexSurah", text = "السور", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("surahs") end },
+      { Button, id = "btnIndexJuz", text = "الأجزاء", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("juzs") end },
+      { Button, id = "btnIndexPage", text = "الصفحات", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("pages") end },
+      { Button, id = "btnIndexRub", text = "أرباع الأحزاب", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("rubs") end },
+      { Button, text = "عودة", id = "btnBackFromIndex", layout_marginTop = "20dp", onClick = function() mainFlipper.setDisplayedChild(0) end },
     }
   }
 }
@@ -347,9 +388,48 @@ function applyTheme()
   local colors = theme.colors
   rootLayout.setBackgroundColor(Color.parseColor(colors.background))
   setDesign(toolbarLayout, colors.primary, 0)
+
+  -- Main Menu Styling
+  if menuTitle then menuTitle.setTextColor(Color.parseColor(colors.text_title)) end
+  setDesign(btnGoQuran, colors.card_bg, dimens.radius)
+  btnGoQuran.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnGoMemorize, colors.card_bg, dimens.radius)
+  btnGoMemorize.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnGoAzkar, colors.card_bg, dimens.radius)
+  btnGoAzkar.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnGoRadio, colors.card_bg, dimens.radius)
+  btnGoRadio.setTextColor(Color.parseColor(colors.text_title))
+
+  local function addLongClick(v, t)
+    v.onLongClick = function() announceAccess(t); return true end
+  end
+  addLongClick(btnGoQuran, "قسم تصفح وقراءة القرآن الكريم")
+  addLongClick(btnGoMemorize, "قسم المحفظ لتعليم وحفظ القرآن")
+  addLongClick(btnGoAzkar, "قسم الأذكار وحصن المسلم")
+  addLongClick(btnGoRadio, "قسم إذاعات القرآن الكريم المباشرة")
+
+  if btnBackFromIndex then addLongClick(btnBackFromIndex, "العودة للقائمة السابقة") end
+  if btnBack then addLongClick(btnBack, "العودة لقائمة السور أو الأقسام") end
+  if btnPlay then addLongClick(btnPlay, "تشغيل أو إيقاف المقطع الصوتي") end
+  if btnNext then addLongClick(btnNext, "الذهاب للآية أو العنصر التالي") end
+  if btnPrev then addLongClick(btnPrev, "العودة للآية أو العنصر السابق") end
+
+  -- Index Page Styling
+  if indexTitle then indexTitle.setTextColor(Color.parseColor(colors.text_title)) end
+  setDesign(btnIndexSurah, colors.card_bg, dimens.radius)
+  btnIndexSurah.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnIndexJuz, colors.card_bg, dimens.radius)
+  btnIndexJuz.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnIndexPage, colors.card_bg, dimens.radius)
+  btnIndexPage.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnIndexRub, colors.card_bg, dimens.radius)
+  btnIndexRub.setTextColor(Color.parseColor(colors.text_title))
+  if btnBackFromIndex then btnBackFromIndex.setBackgroundColor(0); btnBackFromIndex.setTextColor(Color.parseColor(colors.text_body)) end
+
   setDesign(resumeCard, colors.card_bg, dimens.radius)
   if resumeTitle then resumeTitle.setTextColor(Color.parseColor(colors.text_title)) end
   if resumeInfo then resumeInfo.setTextColor(Color.parseColor(colors.text_body)) end
+  if listTitle then listTitle.setTextColor(Color.parseColor(colors.primary)) end
   setDesign(btnResume, colors.accent, 24)
   setDesign(searchEdt, colors.card_bg, dimens.radius)
   searchEdt.setTextColor(Color.parseColor(colors.text_title))
@@ -368,6 +448,8 @@ function applyTheme()
   if btnAddBookmark then btnAddBookmark.setColorFilter(Color.parseColor(colors.bookmark_icon)) end
   if btnShare then btnShare.setColorFilter(Color.parseColor(colors.share_icon)) end
   
+  if showResumeCard then showResumeCard() end
+
   if errorText then errorText.setTextColor(Color.parseColor(colors.error_text)) end
   if btnRetry then setDesign(btnRetry, colors.primary, 24); btnRetry.setTextColor(Color.parseColor(colors.text_white)) end
   
@@ -381,19 +463,6 @@ function applyTheme()
   announceAccess("تم تفعيل " .. modeName)
 end
 
-applyTheme()
-
-setAccessibility(toolbar_title, "المحفظ القرآني، الصفحة الرئيسية", "heading")
-setAccessibility(btn_settings, "فتح الإعدادات", "button")
-setAccessibility(btn_theme, "تبديل الوضع الليلي", "button")
-setAccessibility(btn_bookmarks, "عرض الإشارات المرجعية", "button")
-setAccessibility(searchEdt, "مربع بحث، اكتب اسم السورة أو رقمها", "edit")
-setAccessibility(btnPlay, "تشغيل المقطع الصوتي", "button")
-setAccessibility(btnAddBookmark, "إضافة إشارة مرجعية", "button")
-setAccessibility(btnShare, "مشاركة الآية", "button")
-setAccessibility(btnRetry, "إعادة محاولة تحميل قائمة السور", "button")
-
-pcall(function() ayahText.setLineSpacing(0, 1.4) end)
 
 -- ==========================================
 -- 🌙 6. DARK MODE FEATURE (ميزة 1)
@@ -524,17 +593,17 @@ function setMainViewState(state) -- "loading", "error", "content"
     loadingIndicator.setVisibility(View.VISIBLE)
     errorContainer.setVisibility(View.GONE)
     surahListContainer.setVisibility(View.GONE)
-    announceAccess("جاري تحميل قائمة السور")
+    announceAccess("جاري تحميل البيانات، يرجى الانتظار")
   elseif state == "error" then
     loadingIndicator.setVisibility(View.GONE)
     errorContainer.setVisibility(View.VISIBLE)
     surahListContainer.setVisibility(View.GONE)
-    announceAccess("حدث خطأ في التحميل")
+    announceAccess("حدث خطأ أثناء تحميل البيانات، يرجى التحقق من الإنترنت وإعادة المحاولة")
   elseif state == "content" then
     loadingIndicator.setVisibility(View.GONE)
     errorContainer.setVisibility(View.GONE)
     surahListContainer.setVisibility(View.VISIBLE)
-    announceAccess("تم تحميل القائمة بنجاح")
+    announceAccess("تم تحميل القائمة بنجاح، يمكنك التصفح الآن")
   end
 end
 
@@ -606,37 +675,432 @@ function updateList(filter)
 
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
-      showRangeSelectionDialog(filteredSurahs[position + 1])
+      local item = filteredSurahs[position + 1]
+      if currentViewType == "surahs" then
+        showRangeSelectionDialog(item)
+      elseif currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" or currentViewType == "quran_reading" then
+        handleDivisionClick(item)
+      elseif currentViewType == "azkar_categories" then
+        showAzkarContent(item.title)
+      end
     end
   })
+end
+
+function handleDivisionClick(item)
+  if currentViewType == "surahs" or currentViewType == "quran_reading" then
+    loadSurahDetails(item.number, 1, item.numberOfAyahs)
+  elseif currentViewType == "juzs" then
+    loadDivisionDetails("juz", item.number)
+  elseif currentViewType == "pages" then
+    loadDivisionDetails("page", item.number)
+  elseif currentViewType == "rubs" then
+    loadDivisionDetails("hizbQuarter", item.number)
+  end
+end
+
+function loadDivisionDetails(type, number)
+  local url = BaseURL .. "/" .. type .. "/" .. number .. "/" .. config.current_reciter
+  local pd = ProgressDialog.show(activity, "يرجى الانتظار", "جاري جلب الآيات...", true)
+
+  httpGet(url, function(success, body)
+    pd.dismiss()
+    if not success then
+      Toast.makeText(activity, "خطأ في الشبكة", Toast.LENGTH_LONG).show()
+      return
+    end
+
+    local decode_ok, json = pcall(cjson.decode, body)
+    if decode_ok and json.code == 200 and json.data then
+      local data = json.data
+      player.currentSurahData = {}
+      local typeName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع "))
+      player.currentSurahName = typeName .. number
+      player.currentSurahNumber = number
+
+      local ayahs = data.ayahs
+      for i=1, #ayahs do
+        table.insert(player.currentSurahData, {
+          text = ayahs[i].text,
+          audio = ayahs[i].audio,
+          numberInSurah = ayahs[i].numberInSurah,
+          surahName = ayahs[i].surah.name
+        })
+      end
+
+      if #player.currentSurahData > 0 then
+        lastIndex = mainFlipper.getDisplayedChild()
+        mainFlipper.setDisplayedChild(2)
+        setupPlayer(1)
+      end
+    else
+      Toast.makeText(activity, "خطأ في تحميل البيانات", Toast.LENGTH_LONG).show()
+    end
+  end)
+end
+
+function showMemorizationSection()
+  currentViewType = "surahs"
+  listTitle.setVisibility(View.VISIBLE)
+  listTitle.text = "المحفظ القرآني - اختر سورة"
+  mainFlipper.setDisplayedChild(1)
+  loadSurahs()
+end
+
+function showQuranSection()
+  mainFlipper.setDisplayedChild(3) -- Index Type Selection
+  announceAccess("اختر طريقة تصفح القرآن الكريم")
+end
+
+function showQuranList(type)
+  currentViewType = type
+  listTitle.setVisibility(View.VISIBLE)
+  mainFlipper.setDisplayedChild(1)
+
+  if type == "surahs" then
+    listTitle.text = "القرآن الكريم - السور"
+    loadSurahs()
+  elseif type == "juzs" then
+    listTitle.text = "القرآن الكريم - الأجزاء"
+    loadJuzs()
+  elseif type == "pages" then
+    listTitle.text = "القرآن الكريم - الصفحات"
+    loadPages()
+  elseif type == "rubs" then
+    listTitle.text = "القرآن الكريم - أرباع الأحزاب"
+    loadRubs()
+  end
+end
+
+function loadJuzs()
+  setMainViewState("loading")
+  local juzs = {}
+  for i=1, 30 do
+    table.insert(juzs, {
+      title = "الجزء " .. i,
+      subtitle = "تصفح الجزء رقم " .. i,
+      number = i,
+      type = "juz"
+    })
+  end
+  allSurahsData = juzs
+  updateList("")
+  setMainViewState("content")
+end
+
+function loadRubs()
+  setMainViewState("loading")
+  local rubs = {}
+  for i=1, 240 do
+    table.insert(rubs, {
+      title = "الربع " .. i,
+      subtitle = "تصفح الربع رقم " .. i,
+      number = i,
+      type = "rub"
+    })
+  end
+  allSurahsData = rubs
+  updateList("")
+  setMainViewState("content")
+end
+
+function loadPages()
+  setMainViewState("loading")
+  local pages = {}
+  for i=1, 604 do
+    table.insert(pages, {
+      title = "صفحة " .. i,
+      subtitle = "تصفح الصفحة رقم " .. i,
+      number = i,
+      type = "page"
+    })
+  end
+  allSurahsData = pages
+  updateList("")
+  setMainViewState("content")
+end
+
+function loadHizbs()
+  setMainViewState("loading")
+  local hizbs = {}
+  for i=1, 60 do
+    table.insert(hizbs, {
+      title = "الحزب " .. i,
+      subtitle = "تصفح الحزب رقم " .. i,
+      number = i,
+      type = "hizb"
+    })
+  end
+  allSurahsData = hizbs
+  updateList("")
+  setMainViewState("content")
+end
+
+function showAzkarSection()
+  currentViewType = "azkar_categories"
+  listTitle.setVisibility(View.VISIBLE)
+  listTitle.text = "الأذكار - حصن المسلم"
+  mainFlipper.setDisplayedChild(1)
+  loadAzkarCategories()
+end
+
+function loadAzkarCategories()
+  setMainViewState("loading")
+  if allAzkarData and next(allAzkarData) then
+    displayAzkarCategories()
+    return
+  end
+
+  httpGet(AzkarURL, function(success, body)
+    if success then
+      local decode_ok, json = pcall(cjson.decode, body)
+      if decode_ok then
+        allAzkarData = json
+        displayAzkarCategories()
+      else
+        setMainViewState("error")
+      end
+    else
+      setMainViewState("error")
+    end
+  end)
+end
+
+function displayAzkarCategories()
+  local categories = {}
+  for catName, data in pairs(allAzkarData) do
+    table.insert(categories, {
+      title = catName,
+      subtitle = (type(data.text) == "table" and #data.text or 0) .. " ذكر",
+      type = "azkar_category"
+    })
+  end
+  allSurahsData = categories
+  updateList("")
+  setMainViewState("content")
+end
+
+function showAzkarContent(categoryName)
+  currentViewType = "azkar_content"
+  currentAzkarCategory = categoryName
+  listTitle.text = categoryName
+
+  local zekrList = {}
+  local data = allAzkarData[categoryName]
+  if data and data.text then
+    for i, text in ipairs(data.text) do
+      table.insert(zekrList, {
+        title = text,
+        subtitle = "انقر للبدء بالعد",
+        zekrText = text,
+        index = i,
+        count = 0
+      })
+    end
+  end
+
+  allSurahsData = zekrList
+  updateAzkarList("")
+end
+
+function updateAzkarList(filter)
+  local listData = {}
+  local colors = theme.colors
+  local itemLayout = {
+    LinearLayout, layout_width = "fill", padding = "8dp",
+    {
+      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = colors.card_bg, elevation = "2dp",
+      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = colors.text_title, gravity = "right" },
+      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = colors.primary, layout_marginTop = "8dp" }
+    }
+  }
+
+  for i, s in ipairs(allSurahsData) do
+    table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+  end
+
+  local adapter = LuaAdapter(activity, listData, itemLayout)
+  surahList.setAdapter(adapter)
+
+  surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
+    onItemClick = function(parent, view, position, id)
+      showZekrCounter(allSurahsData[position + 1])
+    end
+  })
+end
+
+function showZekrCounter(zekrItem)
+  local colors = theme.colors
+  local count = 0
+
+  local counterLayout = {
+    LinearLayout, orientation = "vertical", padding = "24dp", layout_width = "fill", backgroundColor = colors.card_bg, gravity="center",
+    { ScrollView, layout_width="fill", layout_height="200dp", layout_marginBottom="20dp",
+      { TextView, text = zekrItem.zekrText, textSize = "22sp", style = "bold", textColor = colors.text_title, gravity = "center" }
+    },
+    { TextView, id = "txtCount", text = "0", textSize = "60sp", style = "bold", textColor = colors.primary, layout_marginBottom = "20dp" },
+    { Button, id = "btnCount", text = "اضغط للعد", layout_width = "200dp", layout_height = "200dp", onClick = function()
+        count = count + 1
+        txtCount.text = tostring(count)
+        announceAccess("العدد الحالي " .. count)
+      end
+    },
+    { Button, text = "إغلاق", layout_marginTop="20dp", id="btnCloseCounter" }
+  }
+
+  local builder = AlertDialog.Builder(activity)
+  local dlg = builder.show()
+  dlg.setContentView(loadlayout(counterLayout))
+  setCircleDesign(btnCount, colors.accent)
+  btnCount.setTextColor(colors.text_title)
+  btnCloseCounter.onClick = function() dlg.dismiss() end
+end
+
+function showRadioSection()
+  currentViewType = "radio"
+  listTitle.setVisibility(View.VISIBLE)
+  listTitle.text = "إذاعات القرآن الكريم"
+  mainFlipper.setDisplayedChild(1)
+  loadRadios()
+end
+
+function loadRadios()
+  setMainViewState("loading")
+  if allRadiosData and #allRadiosData > 0 then
+    displayRadios()
+    return
+  end
+
+  local url = "https://www.mp3quran.net/api/v3/radios?language=ar"
+  httpGet(url, function(success, body)
+    if success then
+      local decode_ok, json = pcall(cjson.decode, body)
+      if decode_ok and json.radios then
+        allRadiosData = json.radios
+        displayRadios()
+      else
+        setMainViewState("error")
+      end
+    else
+      setMainViewState("error")
+    end
+  end)
+end
+
+function displayRadios()
+  local listData = {}
+  for i, r in ipairs(allRadiosData) do
+    table.insert(listData, {
+      title = r.name,
+      subtitle = "بث مباشر - انقر للتشغيل",
+      url = r.url
+    })
+  end
+  allSurahsData = listData
+  updateRadioList("")
+end
+
+function updateRadioList(filter)
+  local listData = {}
+  local colors = theme.colors
+  local itemLayout = {
+    LinearLayout, layout_width = "fill", padding = "8dp",
+    {
+      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = colors.card_bg, elevation = "2dp",
+      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = colors.text_title, gravity = "right" },
+      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = colors.primary, layout_marginTop = "8dp" }
+    }
+  }
+
+  for i, s in ipairs(allSurahsData) do
+    table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+  end
+
+  local adapter = LuaAdapter(activity, listData, itemLayout)
+  surahList.setAdapter(adapter)
+
+  surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
+    onItemClick = function(parent, view, position, id)
+      playRadio(allSurahsData[position + 1])
+    end
+  })
+end
+
+function playRadio(radioItem)
+  player.currentSurahName = radioItem.title
+  player.currentSurahNumber = 0
+
+  -- Use player page for radio too
+  lastIndex = mainFlipper.getDisplayedChild()
+  mainFlipper.setDisplayedChild(2)
+
+  playerTitle.text = radioItem.title
+  reciterNameDisplay.text = "بث مباشر من MP3Quran"
+  ayahText.text = "جاري الاتصال بالبث المباشر..."
+  statusText.text = "جاري التحميل..."
+  progressText.text = "راديو مباشر"
+
+  setupMediaPlayer(radioItem.url)
+  player.isPlaying = true
+  announceAccess("بدء تشغيل " .. radioItem.title)
 end
 
 function showRangeSelectionDialog(surahMap)
   local colors = theme.colors
   local rangeLayout = {
     LinearLayout, orientation = "vertical", padding = "24dp", layout_width = "fill", backgroundColor = colors.card_bg,
-    { TextView, text = "تحديد الآيات: " .. surahMap.englishName, textSize = "22sp", style = "bold", textColor = colors.primary, layout_marginBottom = "24dp", gravity = "center" },
+    { TextView, text = "تحديد الآيات: " .. surahMap.englishName, textSize = "22sp", style = "bold", textColor = colors.primary, layout_marginBottom = "24dp", gravity = "center", id="rangeTitle" },
+
+    { TextView, text = "من آية:", textSize = "16sp", textColor = colors.text_body },
     {
       LinearLayout, orientation = "horizontal", layout_width = "fill", gravity = "center",
-      { TextView, text = "من آية:", textSize = "18sp", textColor = colors.text_title },
-      { EditText, id = "fromAyahEdt", inputType = "number", text = "1", width = "80dp", gravity = "center" },
-      { TextView, text = "إلى آية:", textSize = "18sp", textColor = colors.text_title, layout_marginLeft = "16dp" },
-      { EditText, id = "toAyahEdt", inputType = "number", text = tostring(surahMap.numberOfAyahs), width = "80dp", gravity = "center" }
+      { Button, text = "-", id = "btnDecFrom", layout_width = "60dp" },
+      { EditText, id = "fromAyahEdt", inputType = "number", text = "1", layout_weight = 1, gravity = "center" },
+      { Button, text = "+", id = "btnIncFrom", layout_width = "60dp" },
+    },
+
+    { TextView, text = "إلى آية:", textSize = "16sp", textColor = colors.text_body, layout_marginTop="16dp" },
+    {
+      LinearLayout, orientation = "horizontal", layout_width = "fill", gravity = "center",
+      { Button, text = "-", id = "btnDecTo", layout_width = "60dp" },
+      { EditText, id = "toAyahEdt", inputType = "number", text = tostring(surahMap.numberOfAyahs), layout_weight = 1, gravity = "center" },
+      { Button, text = "+", id = "btnIncTo", layout_width = "60dp" },
+    },
+
+    {
+      LinearLayout, orientation = "horizontal", layout_width = "fill", layout_marginTop = "24dp",
+      { Button, id = "btnStartSave", text = "بدء الحفظ", layout_weight = 1 },
+      { Button, id = "btnCancelSave", text = "إلغاء", layout_weight = 1, layout_marginLeft="8dp" },
     }
   }
 
-  local dlg = AlertDialog.Builder(activity)
-  dlg.setView(loadlayout(rangeLayout))
-  dlg.setPositiveButton("بدء الحفظ", function()
+  local builder = AlertDialog.Builder(activity)
+  local dlg = builder.show()
+  dlg.setContentView(loadlayout(rangeLayout))
+
+  setDesign(btnStartSave, colors.primary, 12); btnStartSave.setTextColor(Color.WHITE)
+  setDesign(btnCancelSave, colors.card_bg, 12); btnCancelSave.setTextColor(colors.text_body)
+
+  btnIncFrom.onClick = function() local n = (tonumber(fromAyahEdt.text) or 1) + 1; if n <= surahMap.numberOfAyahs then fromAyahEdt.text = tostring(n) end end
+  btnDecFrom.onClick = function() local n = (tonumber(fromAyahEdt.text) or 1) - 1; if n >= 1 then fromAyahEdt.text = tostring(n) end end
+  btnIncTo.onClick = function() local n = (tonumber(toAyahEdt.text) or 1) + 1; if n <= surahMap.numberOfAyahs then toAyahEdt.text = tostring(n) end end
+  btnDecTo.onClick = function() local n = (tonumber(toAyahEdt.text) or 1) - 1; if n >= 1 then toAyahEdt.text = tostring(n) end end
+
+  setAccessibility(btnIncFrom, "زيادة رقم آية البداية")
+  setAccessibility(btnDecFrom, "نقص رقم آية البداية")
+  setAccessibility(btnIncTo, "زيادة رقم آية النهاية")
+  setAccessibility(btnDecTo, "نقص رقم آية النهاية")
+
+  btnStartSave.onClick = function()
     local startA = tonumber(fromAyahEdt.text) or 1
     local endA = tonumber(toAyahEdt.text) or surahMap.numberOfAyahs
     if startA < 1 then startA = 1 end
     if endA > surahMap.numberOfAyahs then endA = surahMap.numberOfAyahs end
     if startA > endA then startA = endA end
+    dlg.dismiss()
     loadSurahDetails(surahMap.number, startA, endA)
-  end)
-  dlg.setNegativeButton("إلغاء", nil)
-  dlg.show()
+  end
+  btnCancelSave.onClick = function() dlg.dismiss() end
 end
 
 -- =========================================
@@ -694,7 +1158,8 @@ function loadSurahDetails(number, startAyah, endAyah)
     end
     
     if #player.currentSurahData > 0 then
-      mainFlipper.showNext()
+      lastIndex = mainFlipper.getDisplayedChild()
+      mainFlipper.setDisplayedChild(2)
       setupPlayer(1) 
     else
       Toast.makeText(activity, "لم يتم العثور على آيات في النطاق المحدد.", Toast.LENGTH_LONG).show()
@@ -719,7 +1184,11 @@ function setupPlayer(index)
   progressText.text = index .. " / " .. #player.currentSurahData
   saveCurrentProgress()
   
-  announceAccess("الآية " .. ayah.numberInSurah .. ". جاهزة.")
+  local textToAnnounce = player.currentSurahName .. ". "
+  if ayah.surahName then textToAnnounce = textToAnnounce .. "سورة " .. ayah.surahName .. ". " end
+  textToAnnounce = textToAnnounce .. "الآية " .. ayah.numberInSurah .. ". جاهزة للتشغيل."
+
+  announceAccess(textToAnnounce)
   setupMediaPlayer(ayah.audio)
 end
 
@@ -757,8 +1226,10 @@ end
 function togglePlay()
   if player.media.isPlaying() then
     player.media.pause(); player.isPlaying = false; updatePlayButton(false)
+    announceAccess("تم الإيقاف المؤقت")
   else
     player.media.start(); player.isPlaying = true; updatePlayButton(true)
+    announceAccess("تم استئناف التشغيل")
   end
 end
 
@@ -836,9 +1307,28 @@ end
 
 function onKeyDown(keyCode, event)
   if keyCode == KeyEvent.KEYCODE_BACK then
-    if mainFlipper.getDisplayedChild() == 1 then
+    local current = mainFlipper.getDisplayedChild()
+    if current == 2 then -- Player Page
       stopAudio()
-      mainFlipper.showPrevious()
+      mainFlipper.setDisplayedChild(lastIndex or 1)
+      return true
+    elseif current == 1 then -- List Page
+      if currentViewType == "azkar_content" then
+        showAzkarSection()
+        return true
+      end
+      if currentViewType == "surahs" or currentViewType == "azkar_categories" or currentViewType == "radio" then
+         mainFlipper.setDisplayedChild(0)
+      else
+         mainFlipper.setDisplayedChild(3) -- Back to Index Selection (Juz, Page, Rub)
+      end
+      return true
+    elseif current == 3 then -- Index Selection
+      mainFlipper.setDisplayedChild(0)
+      return true
+    elseif current > 0 then
+      mainFlipper.setDisplayedChild(0)
+      announceAccess("العودة للقائمة الرئيسية")
       return true
     end
   end
@@ -858,4 +1348,33 @@ end
 -- 🚀 13. START APPLICATION
 -- ==========================================
 
-loadSurahs()
+function startApp()
+  applyTheme()
+  if showResumeCard then showResumeCard() end
+
+setAccessibility(toolbar_title, "تطبيق القرآن الكريم، الصفحة الرئيسية", "heading")
+setAccessibility(btn_settings, "فتح الإعدادات", "button")
+setAccessibility(btn_theme, "تبديل الوضع الليلي", "button")
+setAccessibility(btn_bookmarks, "عرض الإشارات المرجعية", "button")
+setAccessibility(btnGoQuran, "تصفح وقراءة القرآن الكريم", "button")
+setAccessibility(btnGoMemorize, "المحفظ القرآني، قسم الحفظ والتكرار", "button")
+setAccessibility(btnGoAzkar, "الأذكار النبوية وحصن المسلم", "button")
+setAccessibility(btnGoRadio, "إذاعات القرآن الكريم المباشرة", "button")
+setAccessibility(btnIndexSurah, "عرض فهرس السور", "button")
+setAccessibility(btnIndexJuz, "عرض فهرس الأجزاء", "button")
+setAccessibility(btnIndexPage, "عرض فهرس الصفحات", "button")
+setAccessibility(btnIndexRub, "عرض فهرس أرباع الأحزاب", "button")
+setAccessibility(searchEdt, "مربع بحث، اكتب اسم السورة أو الرقم", "edit")
+setAccessibility(btnPlay, "تشغيل المقطع الصوتي", "button")
+setAccessibility(btnAddBookmark, "إضافة إشارة مرجعية", "button")
+setAccessibility(btnShare, "مشاركة الآية الحالية كمتن نصي", "button")
+setAccessibility(btnRetry, "إعادة محاولة تحميل البيانات", "button")
+setAccessibility(btnBack, "زر العودة للقائمة السابقة", "button")
+setAccessibility(btnBackFromIndex, "زر العودة للقائمة الرئيسية", "button")
+
+  pcall(function() ayahText.setLineSpacing(0, 1.4) end)
+  mainFlipper.setDisplayedChild(0)
+  announceAccess("تطبيق القرآن الكريم، القائمة الرئيسية")
+end
+
+startApp()
