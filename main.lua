@@ -700,7 +700,7 @@ function handleDivisionClick(item)
 end
 
 function loadDivisionDetails(type, number)
-  local url = BaseURL .. "/" .. type .. "/" .. number .. "/editions/quran-simple," .. config.current_reciter
+  local url = BaseURL .. "/" .. type .. "/" .. number .. "/" .. config.current_reciter
   local pd = ProgressDialog.show(activity, "يرجى الانتظار", "جاري جلب الآيات...", true)
 
   httpGet(url, function(success, body)
@@ -711,24 +711,18 @@ function loadDivisionDetails(type, number)
     end
 
     local decode_ok, json = pcall(cjson.decode, body)
-    if decode_ok and json.code == 200 and json.data and #json.data >= 2 then
-      local dataText, dataAudio
-      if json.data[1].edition and json.data[1].edition.type == "audio" then
-        dataAudio, dataText = json.data[1], json.data[2]
-      else
-        dataText, dataAudio = json.data[1], json.data[2]
-      end
-
+    if decode_ok and json.code == 200 and json.data then
+      local data = json.data
       player.currentSurahData = {}
       local typeName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع "))
       player.currentSurahName = typeName .. number
       player.currentSurahNumber = number
 
-      local ayahs = dataText.ayahs
+      local ayahs = data.ayahs
       for i=1, #ayahs do
         table.insert(player.currentSurahData, {
           text = ayahs[i].text,
-          audio = dataAudio.ayahs[i].audio,
+          audio = ayahs[i].audio,
           numberInSurah = ayahs[i].numberInSurah,
           surahName = ayahs[i].surah.name
         })
@@ -1323,10 +1317,10 @@ function onKeyDown(keyCode, event)
         showAzkarSection()
         return true
       end
-      if (currentViewType == "surahs" or currentViewType == "azkar_categories" or currentViewType == "radio") and (not lastIndex or lastIndex == 0) then
+      if currentViewType == "surahs" or currentViewType == "azkar_categories" or currentViewType == "radio" then
          mainFlipper.setDisplayedChild(0)
       else
-         mainFlipper.setDisplayedChild(3) -- Back to Index Selection
+         mainFlipper.setDisplayedChild(3) -- Back to Index Selection (Juz, Page, Rub)
       end
       return true
     elseif current == 3 then -- Index Selection
@@ -1354,7 +1348,9 @@ end
 -- 🚀 13. START APPLICATION
 -- ==========================================
 
-applyTheme()
+function startApp()
+  applyTheme()
+  if showResumeCard then showResumeCard() end
 
 setAccessibility(toolbar_title, "تطبيق القرآن الكريم، الصفحة الرئيسية", "heading")
 setAccessibility(btn_settings, "فتح الإعدادات", "button")
@@ -1376,7 +1372,9 @@ setAccessibility(btnRetry, "إعادة محاولة تحميل البيانات"
 setAccessibility(btnBack, "زر العودة للقائمة السابقة", "button")
 setAccessibility(btnBackFromIndex, "زر العودة للقائمة الرئيسية", "button")
 
-pcall(function() ayahText.setLineSpacing(0, 1.4) end)
+  pcall(function() ayahText.setLineSpacing(0, 1.4) end)
+  mainFlipper.setDisplayedChild(0)
+  announceAccess("تطبيق القرآن الكريم، القائمة الرئيسية")
+end
 
-mainFlipper.setDisplayedChild(0)
-announceAccess("تطبيق القرآن الكريم، القائمة الرئيسية")
+startApp()
