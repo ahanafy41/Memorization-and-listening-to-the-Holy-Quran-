@@ -1041,10 +1041,19 @@ function showZekrCounter(zekrItem)
     setDesign(views.btnPlayZekr, colors.primary, dimens.radius)
     views.btnPlayZekr.setTextColor(Color.parseColor("#FFFFFF"))
     views.btnPlayZekr.onClick = function()
-      player.currentSurahData = {}
-      local audioUrl = AzkarAudioBaseURL .. zekrItem.audio
+      player.currentSurahName = zekrItem.zekrText:sub(1, 50) .. "..."
+      player.currentSurahNumber = 0
+      player.currentAyahIndex = 1
+      player.currentRepeatCount = 0
+      player.currentSurahData = {{ audio = AzkarAudioBaseURL .. zekrItem.audio, numberInSurah = 1, text = zekrItem.zekrText }}
+
+      playerTitle.text = "استماع للذكر"
+      ayahText.text = zekrItem.zekrText
+      reciterNameDisplay.text = "حصن المسلم"
+      progressText.text = "1 / 1"
+
       player.isPlaying = true
-      setupMediaPlayer(audioUrl)
+      setupMediaPlayer(AzkarAudioBaseURL .. zekrItem.audio)
       announceAccess("جاري تشغيل صوت الذكر")
       Toast.makeText(activity, "جاري تشغيل الصوت...", Toast.LENGTH_SHORT).show()
     end
@@ -1099,7 +1108,7 @@ function displayRadios()
     table.insert(currentRadiosList, {
       title = "إذاعة القرآن الكريم من القاهرة",
       subtitle = "بث مباشر - القاهرة، مصر",
-      url = "https://stream.radiojar.com/8s5u8p3st"
+      url = "https://n02.radiojar.com/8s5u8p3st"
     })
   end
 
@@ -1198,8 +1207,8 @@ function showRangeSelectionDialog(surahMap)
   local dlg = builder.show()
   dlg.setContentView(loadlayout(rangeLayout))
 
-  setDesign(btnStartSave, colors.primary, 12); btnStartSave.setTextColor(Color.WHITE)
-  setDesign(btnCancelSave, colors.card_bg, 12); btnCancelSave.setTextColor(colors.text_body)
+  setDesign(btnStartSave, colors.primary, 12); btnStartSave.setTextColor(Color.parseColor("#FFFFFF"))
+  setDesign(btnCancelSave, colors.card_bg, 12); btnCancelSave.setTextColor(Color.parseColor(colors.text_body))
 
   btnIncFrom.onClick = function() local n = (tonumber(fromAyahEdt.text) or 1) + 1; if n <= surahMap.numberOfAyahs then fromAyahEdt.text = tostring(n) end end
   btnDecFrom.onClick = function() local n = (tonumber(fromAyahEdt.text) or 1) - 1; if n >= 1 then fromAyahEdt.text = tostring(n) end end
@@ -1314,6 +1323,7 @@ end
 
 function setupMediaPlayer(url)
   stopAudio()
+  player.isPlaying = true
   local success, err = pcall(function() player.media.setDataSource(url); player.media.prepareAsync() end)
   if not success then
     statusText.text = "خطأ في رابط الصوت"
