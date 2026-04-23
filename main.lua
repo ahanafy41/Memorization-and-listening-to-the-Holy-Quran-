@@ -95,7 +95,8 @@ local currentAzkarCategory = nil
 local currentViewType = "surahs"
 local lastIndex = 0
 local BaseURL = "https://api.alquran.cloud/v1"
-local AzkarURL = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/main/hisn_almuslim.json"
+local AzkarURL = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/feat/refactor-hisn-al-muslim/azkar-data/azkar.json"
+local AzkarAudioBaseURL = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/feat/refactor-hisn-al-muslim/azkar-data"
 
 
 local bookmarks = {}
@@ -638,7 +639,16 @@ function loadSurahs()
         end
         updateList("")
         showResumeCard()
-        searchEdt.addTextChangedListener{ onTextChanged = function(s) updateList(tostring(s)) end }
+        searchEdt.addTextChangedListener{ onTextChanged = function(s)
+          local txt = tostring(s)
+          if currentViewType == "radio" then
+            updateRadioList(txt)
+          elseif currentViewType == "azkar_content" then
+            updateAzkarList(txt)
+          else
+            updateList(txt)
+          end
+        end }
         setMainViewState("content")
       else
         setMainViewState("error")
@@ -681,7 +691,7 @@ function updateList(filter)
       elseif currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" or currentViewType == "quran_reading" then
         handleDivisionClick(item)
       elseif currentViewType == "azkar_categories" then
-        showAzkarContent(item.title)
+        showAzkarContent(item.index)
       end
     end
   })
@@ -868,10 +878,12 @@ end
 
 function displayAzkarCategories()
   local categories = {}
-  for catName, data in pairs(allAzkarData) do
+  -- The new JSON is an array of objects: { category = "...", array = [...] }
+  for i, data in ipairs(allAzkarData) do
     table.insert(categories, {
-      title = catName,
-      subtitle = (type(data.text) == "table" and #data.text or 0) .. " ذكر",
+      title = data.category,
+      subtitle = (data.array and #data.array or 0) .. " ذكر",
+      index = i,
       type = "azkar_category"
     })
   end
@@ -880,21 +892,34 @@ function displayAzkarCategories()
   setMainViewState("content")
 end
 
-function showAzkarContent(categoryName)
-  currentViewType = "azkar_content"
-  currentAzkarCategory = categoryName
-  listTitle.text = categoryName
+function showAzkarContent(categoryIndex)
+  local category = allAzkarData[categoryIndex]
+  if not category then return end
 
+  currentViewType = "azkar_content"
+  currentAzkarCategoryIndex = categoryIndex
+  listTitle.text = category.category
+
+  -- Add a "Play All" option if category audio exists
   local zekrList = {}
-  local data = allAzkarData[categoryName]
-  if data and data.text then
-    for i, text in ipairs(data.text) do
+  if category.audio then
+    table.insert(zekrList, {
+      title = "▶ تشغيل الأذكار متتالية (صوت)",
+      subtitle = "استمع لجميع أذكار " .. category.category,
+      isPlayAll = true,
+      audio = category.audio
+    })
+  end
+
+  if category.array then
+    for i, item in ipairs(category.array) do
       table.insert(zekrList, {
-        title = text,
-        subtitle = "انقر للبدء بالعد",
-        zekrText = text,
-        index = i,
-        count = 0
+        title = item.text,
+        subtitle = "العدد المطلـوب: " .. (item.count or 1),
+        zekrText = item.text,
+        audio = item.audio,
+        targetCount = item.count or 1,
+        index = i
       })
     end
   end
@@ -904,7 +929,7 @@ function showAzkarContent(categoryName)
 end
 
 function updateAzkarList(filter)
-  local listData = {}
+  local listData, filteredItems = {}, {}
   local colors = theme.colors
   local itemLayout = {
     LinearLayout, layout_width = "fill", padding = "8dp",
@@ -915,8 +940,12 @@ function updateAzkarList(filter)
     }
   }
 
+  local f = filter or ""
   for i, s in ipairs(allSurahsData) do
-    table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+    if f == "" or string.find(s.title, f, 1, true) then
+      table.insert(filteredItems, s)
+      table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+    end
   end
 
   local adapter = LuaAdapter(activity, listData, itemLayout)
@@ -924,9 +953,32 @@ function updateAzkarList(filter)
 
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
-      showZekrCounter(allSurahsData[position + 1])
+      local item = filteredItems[position + 1]
+      if item.isPlayAll then
+        playAzkarAudio(item.audio, item.title)
+      else
+        showZekrCounter(item)
+      end
     end
   })
+end
+
+function playAzkarAudio(audioPath, title)
+  lastIndex = mainFlipper.getDisplayedChild()
+  mainFlipper.setDisplayedChild(2)
+
+  player.currentSurahName = title
+  player.currentSurahNumber = 0
+  player.currentSurahData = {{ audio = AzkarAudioBaseURL .. audioPath, numberInSurah = 1 }}
+
+  playerTitle.text = title
+  reciterNameDisplay.text = "حصن المسلم"
+  ayahText.text = "استماع للأذكار"
+  statusText.text = "جاري التشغيل..."
+  progressText.text = "أذكار"
+
+  setupMediaPlayer(AzkarAudioBaseURL .. audioPath)
+  player.isPlaying = true
 end
 
 function showZekrCounter(zekrItem)
@@ -938,11 +990,20 @@ function showZekrCounter(zekrItem)
     { ScrollView, layout_width="fill", layout_height="200dp", layout_marginBottom="20dp",
       { TextView, text = zekrItem.zekrText, textSize = "22sp", style = "bold", textColor = colors.text_title, gravity = "center" }
     },
-    { TextView, id = "txtCount", text = "0", textSize = "60sp", style = "bold", textColor = colors.primary, layout_marginBottom = "20dp" },
+    {
+      LinearLayout, orientation="horizontal", layout_width="fill", gravity="center", layout_marginBottom="20dp",
+      { Button, id="btnPlayZekr", text="▶ تشغيل الصوت", visibility = (zekrItem.audio and View.VISIBLE or View.GONE), layout_marginRight="10dp" },
+      { TextView, id = "txtCount", text = "0", textSize = "60sp", style = "bold", textColor = colors.primary },
+    },
     { Button, id = "btnCount", text = "اضغط للعد", layout_width = "200dp", layout_height = "200dp", onClick = function()
         count = count + 1
         txtCount.text = tostring(count)
         announceAccess("العدد الحالي " .. count)
+        if count >= (zekrItem.targetCount or 1) then
+           import "android.os.Vibrator"
+           local vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
+           vibrator.vibrate(200)
+        end
       end
     },
     { Button, text = "إغلاق", layout_marginTop="20dp", id="btnCloseCounter" }
@@ -953,7 +1014,22 @@ function showZekrCounter(zekrItem)
   dlg.setContentView(loadlayout(counterLayout))
   setCircleDesign(btnCount, colors.accent)
   btnCount.setTextColor(colors.text_title)
-  btnCloseCounter.onClick = function() dlg.dismiss() end
+
+  if btnPlayZekr then
+    setDesign(btnPlayZekr, colors.primary, dimens.radius)
+    btnPlayZekr.setTextColor(Color.WHITE)
+    btnPlayZekr.onClick = function()
+      local audioUrl = AzkarAudioBaseURL .. zekrItem.audio
+      setupMediaPlayer(audioUrl)
+      player.isPlaying = true
+      announceAccess("جاري تشغيل صوت الذكر")
+    end
+  end
+
+  btnCloseCounter.onClick = function()
+    stopAudio()
+    dlg.dismiss()
+  end
 end
 
 function showRadioSection()
@@ -998,10 +1074,11 @@ function displayRadios()
   end
   allSurahsData = listData
   updateRadioList("")
+  setMainViewState("content")
 end
 
 function updateRadioList(filter)
-  local listData = {}
+  local listData, filteredItems = {}, {}
   local colors = theme.colors
   local itemLayout = {
     LinearLayout, layout_width = "fill", padding = "8dp",
@@ -1012,8 +1089,12 @@ function updateRadioList(filter)
     }
   }
 
+  local f = filter or ""
   for i, s in ipairs(allSurahsData) do
-    table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+    if f == "" or string.find(s.title, f, 1, true) then
+      table.insert(filteredItems, s)
+      table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+    end
   end
 
   local adapter = LuaAdapter(activity, listData, itemLayout)
@@ -1021,7 +1102,7 @@ function updateRadioList(filter)
 
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
-      playRadio(allSurahsData[position + 1])
+      playRadio(filteredItems[position + 1])
     end
   })
 end
@@ -1029,6 +1110,7 @@ end
 function playRadio(radioItem)
   player.currentSurahName = radioItem.title
   player.currentSurahNumber = 0
+  player.currentSurahData = {}
 
   -- Use player page for radio too
   lastIndex = mainFlipper.getDisplayedChild()
@@ -1202,18 +1284,24 @@ function setupMediaPlayer(url)
 end
 
 function onAyahComplete()
+  if not player.currentSurahData or #player.currentSurahData == 0 then
+    statusText.text = "تم الانتهاء"
+    updatePlayButton(false); player.isPlaying = false
+    return
+  end
+
   player.currentRepeatCount = player.currentRepeatCount + 1
   if player.currentRepeatCount < config.repeat_ayah then
     statusText.text = "تكرار (" .. player.currentRepeatCount .. " من " .. config.repeat_ayah .. ")"
     if config.delay_seconds > 0 then startDelay(function() player.media.start() end) else player.media.start() end
   else
     if player.currentAyahIndex < #player.currentSurahData then
-      statusText.text = "الانتقال للآية التالية..."
+      statusText.text = "الانتقال للتالي..."
       if config.delay_seconds > 0 then startDelay(function() playNext() end) else playNext() end
     else
-      statusText.text = "تم الانتهاء من الحفظ 🎉"
+      statusText.text = "تم الانتهاء 🎉"
       updatePlayButton(false); player.isPlaying = false
-      announceAccess("تم الانتهاء من حفظ جميع الآيات المحددة")
+      announceAccess("تم الانتهاء من التشغيل")
     end
   end
 end
