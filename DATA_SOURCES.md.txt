@@ -1,0 +1,87 @@
+# Data Sources and Architecture Documentation
+
+This document provides a comprehensive overview of the data sources, repositories, APIs, and the technical architecture used in The Holy Quran application.
+
+## 1. Repositories and Branches
+
+### Main Repository
+- **URL:** `https://github.com/ahanafy41/The-Holy-Quran`
+- **Primary Branch:** `The-new-Quran-update` (Current development/active branch).
+- **Base Branch:** `main` (used for stable data and hosting).
+
+### Azkar Data Repository
+- **URL:** `https://github.com/ahanafy41/azkar-data`
+- **Primary Branch:** `main`
+- **Data Path:** `azkar-data/azkar.json` (Local and remote synchronization).
+
+## 2. External APIs
+
+### Al Quran Cloud API
+- **Base URL:** `https://api.alquran.cloud/v1`
+- **Usage:** 
+  - Fetching Surah lists.
+  - Fetching specific Ayahs and Surahs with different reciters.
+  - Fetching Tafsir editions and specific Tafsir text.
+  - Quran search (using `quran-simple-clean` edition).
+
+### MP3 Quran API
+- **Base URL:** `https://www.mp3quran.net/api/v3`
+- **Usage:**
+  - Fetching a comprehensive list of reciters (`/reciters`).
+  - Fetching live Radio stations (`/radios`).
+  - Providing streaming servers for full-surah audio recitations.
+
+### Every Ayah (Audio Fallback)
+- **Base URL:** `https://everyayah.com/data/`
+- **Usage:** Used as a secondary, highly reliable source for verse-by-verse audio recitations when the primary API source fails.
+
+### Radio Browser API
+- **Base URL:** `https://de1.api.radio-browser.info/json`
+- **Usage:** General radio station lookup (backup/auxiliary).
+
+### Google AI Gemini API
+- **Models:** `gemini-1.5-flash` and `gemini-live-2.5-flash-preview-native-audio-09-2025`.
+- **Usage:** Powering the AI Assistant and Live AI Assistant features for Quranic explanations and interactive sessions.
+
+## 3. Local Data Files
+
+To ensure performance and offline accessibility, several data sources are bundled locally:
+
+- `data/quran-text.ts`: Contains the full Uthmani text of the Quran for local search.
+- `data/tafsir_muyassar.json`: Local copy of Tafsir Al-Muyassar for offline use.
+- `data/quranicDivisions.ts`: Definitions for Juz, Hizb, Rub, and Page boundaries based on Tanzil.net.
+- `data/hadithUrls.ts`: Mapping of Hadith book names to their JSON data URLs on GitHub.
+- `data/hadithData.ts`: Metadata for available Hadith books.
+- `azkar-data/azkar.json`: Local Azkar (remembrances) data.
+- `bukhari (1).json` & `hisn_almuslim.json`: Large local datasets for Hadith and Azkar.
+
+## 4. How It Works (Data Management)
+
+### Hybrid Search Mechanism
+The application uses two search strategies:
+1. **Local Search:** Uses `Fuse.js` for fast, fuzzy, client-side searching within `data/quran-text.ts`. This works offline and is very responsive.
+2. **API Search:** Provides a fallback to `api.alquran.cloud` for specific edition searches or when local results are insufficient.
+
+### Audio Player Strategy
+1. **Primary Source:** Attempt to load audio from the identifier provided by Al Quran Cloud (e.g., `ar.alafasy`).
+2. **Secondary Source:** If the primary fails, the application automatically tries a pre-constructed URL from `everyayah.com`.
+3. **Special Handling:** Some reciters (like Sheikh Muhammad Rifat) have manually added server URLs for unique recordings in `services/quranApi.ts`.
+
+### Tafsir Handling
+- **Tafsir Al-Muyassar:** The app first checks for local data in `tafsir_muyassar.json`. This allows reading Tafsir without an internet connection.
+- **Other Tafsirs:** Fetched on-demand from the Al Quran Cloud API.
+
+### Hadith Fetching
+Hadiths are fetched using a granular strategy to keep the initial load small:
+1. The app fetches a `chapters.json` file for a book to get the list of chapters.
+2. It fetches specific `{chapterId}.json` files only when the user selects a chapter.
+3. Most Hadith files are hosted as raw JSON on GitHub: `https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/main/data/`.
+
+### Offline Support (PWA)
+- **Service Worker:** The application uses `sw.js` to cache API responses and static assets.
+- **Offline Manager:** Users can manually trigger the download of entire Quran text data and audio files for specific reciters into the browser's Cache Storage via the `OfflineManager.tsx` component.
+
+### CDN and External Resources
+- **Tailwind CSS:** Loaded from `https://cdn.tailwindcss.com`.
+- **Fonts:** Loaded from Google Fonts (`Amiri Quran`, `Readex Pro`).
+- **Dependencies:** React, Framer Motion, WaveSurfer, and other libraries are loaded via `esm.sh` import maps in `index.html`.
