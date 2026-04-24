@@ -78,6 +78,10 @@ local reciters = {
   {id="ar.mahermuaiqly", name="ماهر المعيقلي"}
 }
 
+local quranSurahNames = {
+  "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"
+}
+
 local player = {
   media = MediaPlayer(),
   isPlaying = false,
@@ -631,6 +635,10 @@ function loadSurahs()
             updateRadioList(txt)
           elseif currentViewType == "azkar_content" then
             updateAzkarList(txt)
+          elseif currentViewType == "listening_reciters" then
+            displayReciters(txt)
+          elseif currentViewType == "listening_surahs" then
+            if updateReciterSurahsList then updateReciterSurahsList(txt) end
           else
             updateList(txt)
           end
@@ -749,6 +757,7 @@ end
 function showQuranList(type)
   currentViewType = type
   listTitle.setVisibility(View.VISIBLE)
+  if searchEdt then searchEdt.text = ""; searchEdt.setHint("بحث...") end
   mainFlipper.setDisplayedChild(1)
 
   if type == "surahs" then
@@ -834,6 +843,7 @@ function showAzkarSection()
   currentViewType = "azkar_categories"
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "الأذكار - حصن المسلم"
+  if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن قسم...") end
   mainFlipper.setDisplayedChild(1)
   loadAzkarCategories()
 end
@@ -1077,6 +1087,7 @@ function showRadioSection()
   currentViewType = "radio"
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "إذاعات القرآن الكريم"
+  if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن إذاعة...") end
   mainFlipper.setDisplayedChild(1)
   loadRadios()
 end
@@ -1178,6 +1189,7 @@ function showListeningSection()
   currentViewType = "listening_reciters"
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "الاستماع - اختر القارئ"
+  if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن قارئ...") end
   mainFlipper.setDisplayedChild(1)
   loadAllReciters()
 end
@@ -1195,6 +1207,10 @@ function loadAllReciters()
       local decode_ok, json = pcall(cjson.decode, body)
       if decode_ok and json.reciters then
         allRecitersData = json.reciters
+        -- ترتيب القراء أبجدياً
+        table.sort(allRecitersData, function(a, b)
+          return (a.name or "") < (b.name or "")
+        end)
         displayReciters("")
       else
         setMainViewState("error")
@@ -1206,82 +1222,102 @@ function loadAllReciters()
 end
 
 function displayReciters(filter)
-  currentRecitersList = {}
   local listData, filteredItems = {}, {}
-  local itemLayout = getStandardListItem()
-
   local f = filter or ""
   for i, r in ipairs(allRecitersData) do
     if f == "" or string.find(r.name, f, 1, true) then
       local moshaf = r.moshaf and r.moshaf[1]
       if moshaf then
         table.insert(filteredItems, r)
-        table.insert(listData, { tv_title = r.name, tv_subtitle = moshaf.name })
+        local sub = moshaf.name
+        if #r.moshaf > 1 then
+          sub = sub .. " (+ " .. (#r.moshaf - 1) .. " روايات أخرى)"
+        end
+        table.insert(listData, { tv_title = r.name, tv_subtitle = sub })
       end
     end
   end
 
-  local adapter = LuaAdapter(activity, listData, itemLayout)
+  local adapter = LuaAdapter(activity, listData, getStandardListItem())
   surahList.setAdapter(adapter)
 
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
-      showReciterSurahs(filteredItems[position + 1])
+      local reciter = filteredItems[position + 1]
+      if reciter.moshaf and #reciter.moshaf > 1 then
+        showMoshafSelection(reciter)
+      else
+        showReciterSurahs(reciter, reciter.moshaf[1])
+      end
     end
   })
-
-  searchEdt.addTextChangedListener{ onTextChanged = function(s)
-    if currentViewType == "listening_reciters" then displayReciters(tostring(s)) end
-  end }
 
   setMainViewState("content")
 end
 
-function showReciterSurahs(reciter)
+function showMoshafSelection(reciter)
+  local names = {}
+  for i, m in ipairs(reciter.moshaf) do
+    table.insert(names, m.name)
+  end
+
+  local builder = AlertDialog.Builder(activity)
+  builder.setTitle("اختر الرواية / المصحف لـ " .. reciter.name)
+  builder.setItems(names, DialogInterface.OnClickListener{
+    onClick = function(dialog, which)
+      showReciterSurahs(reciter, reciter.moshaf[which + 1])
+    end
+  })
+  builder.setNegativeButton("إلغاء", nil)
+  builder.show()
+end
+
+local currentReciterSurahsData = {}
+
+function showReciterSurahs(reciter, selectedMoshaf)
   currentSelectedReciter = reciter
+  currentSelectedMoshaf = selectedMoshaf
   currentViewType = "listening_surahs"
-  listTitle.text = "سور القارئ: " .. reciter.name
+  listTitle.text = reciter.name .. " (" .. selectedMoshaf.name .. ")"
+  if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن سورة...") end
 
-  local moshaf = reciter.moshaf[1]
-  local surah_list = {}
+  currentReciterSurahsData = {}
   -- Split string "1,2,3..." into numbers
-  for s_num in string.gmatch(moshaf.surah_list, '([^,]+)') do
-    table.insert(surah_list, tonumber(s_num))
+  for s_num in string.gmatch(selectedMoshaf.surah_list, '([^,]+)') do
+    local n = tonumber(s_num)
+    table.insert(currentReciterSurahsData, {
+      s_num = n,
+      tv_title = "سورة " .. (quranSurahNames[n] or n),
+      tv_subtitle = "انقر للاستماع بصوت " .. reciter.name
+    })
   end
 
-  local listData = {}
-  local itemLayout = getStandardListItem()
+  updateReciterSurahsList("")
+end
 
-  -- Note: We need names of surahs. We can use allSurahsData if already loaded,
-  -- but let's assume we have a basic list or use numbers.
-  for i, s_num in ipairs(surah_list) do
-    table.insert(listData, { tv_title = "سورة رقم " .. s_num, tv_subtitle = "انقر للاستماع بصوت " .. reciter.name, s_num = s_num })
-  end
-
-  -- Try to get real names if available from currentSurahsList
-  if currentSurahsList and #currentSurahsList > 0 then
-    for i, item in ipairs(listData) do
-      for _, s_data in ipairs(currentSurahsList) do
-        if s_data.number == item.s_num then
-          item.tv_title = s_data.title
-          break
-        end
-      end
+function updateReciterSurahsList(filter)
+  local listData, filteredItems = {}, {}
+  local f = filter or ""
+  for i, item in ipairs(currentReciterSurahsData) do
+    if f == "" or string.find(item.tv_title, f, 1, true) or string.find(tostring(item.s_num), f, 1, true) then
+      table.insert(filteredItems, item)
+      table.insert(listData, { tv_title = item.tv_title, tv_subtitle = item.tv_subtitle })
     end
   end
 
-  local adapter = LuaAdapter(activity, listData, itemLayout)
+  local adapter = LuaAdapter(activity, listData, getStandardListItem())
   surahList.setAdapter(adapter)
 
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
-      playFullSurah(reciter, listData[position + 1].s_num, listData[position + 1].tv_title)
+      local item = filteredItems[position + 1]
+      playFullSurah(currentSelectedReciter, currentSelectedMoshaf, item.s_num, item.tv_title)
     end
   })
 end
 
-function playFullSurah(reciter, surah_num, surah_name)
-  local moshaf = reciter.moshaf[1]
+function playFullSurah(reciter, selectedMoshaf, surah_num, surah_name)
+  local moshaf = selectedMoshaf
   local server = moshaf.server
   -- Format surah number to 3 digits (001, 010, 114)
   local s_num_str = string.format("%03d", surah_num)
