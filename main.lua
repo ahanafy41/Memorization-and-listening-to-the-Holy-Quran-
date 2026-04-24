@@ -150,9 +150,7 @@ local lastProgress = {
 }
 
 local quranOfflineData = nil
-local quranOfflinePath = (Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED)
-    and (activity.getExternalFilesDir(nil).getPath() .. "/quran_offline.json")
-    or (activity.getFilesDir().getPath() .. "/quran_offline.json")
+local quranOfflinePath = activity.getFilesDir().getPath() .. "/quran_offline_v2.json"
 
 -- ==========================================
 -- 💾 2. DATA PERSISTENCE (حفظ البيانات)
@@ -215,11 +213,12 @@ function downloadQuranOffline(callback)
   pd.show()
 
   -- Use a safer way to handle large bodies
-  local url = "https://api.alquran.cloud/v1/quran/quran-simple,ar.muyassar"
+  -- We'll download text, Muyassar, and Jalalayn (3 editions)
+  local url = "https://api.alquran.cloud/v1/quran/quran-simple,ar.muyassar,ar.jalalayn"
   Http.get(url, function(code, body)
     if code == 200 and body then
       local decode_ok, json = pcall(cjson.decode, body)
-      if decode_ok and json.code == 200 and json.data and json.data[1] then
+      if decode_ok and json.code == 200 and json.data and #json.data >= 3 then
         local success_save, err = pcall(function()
           local file = io.open(quranOfflinePath, "w")
           if file then
@@ -754,8 +753,28 @@ end
 
 function loadSurahs()
   setMainViewState("loading")
-  local url = BaseURL .. "/surah"
   
+  -- Attempt to load from offline data first
+  if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
+    local surahs = quranOfflineData.data[1].surahs
+    currentSurahsList = {}
+    for i, s in ipairs(surahs) do
+      table.insert(currentSurahsList, {
+        title = s.number .. ". " .. s.name,
+        subtitle = s.englishName .. " | " .. #s.ayahs .. " آية",
+        number = s.number,
+        numberOfAyahs = #s.ayahs,
+        englishName = s.englishName
+      })
+    end
+    allSurahsData = currentSurahsList
+    updateList("")
+    showResumeCard()
+    setMainViewState("content")
+    return
+  end
+
+  local url = BaseURL .. "/surah"
   httpGet(url, function(success, body)
     if success then
       local decode_ok, json = pcall(cjson.decode, body)
@@ -774,22 +793,6 @@ function loadSurahs()
         allSurahsData = currentSurahsList
         updateList("")
         showResumeCard()
-        searchEdt.addTextChangedListener{ onTextChanged = function(s)
-          local txt = tostring(s)
-          if currentViewType == "radio" then
-            updateRadioList(txt)
-          elseif currentViewType == "azkar_content" then
-            updateAzkarList(txt)
-          elseif currentViewType == "listening_reciters" then
-            displayReciters(txt)
-          elseif currentViewType == "listening_surahs" then
-            if updateReciterSurahsList then updateReciterSurahsList(txt) end
-          elseif (currentViewType == "surahs" or currentViewType == "quran_reading") and #txt > 2 then
-            searchQuranOffline(txt)
-          else
-            updateList(txt)
-          end
-        end }
         setMainViewState("content")
       else
         setMainViewState("error")
@@ -852,7 +855,8 @@ function loadDivisionDetails(type, number)
   -- Try offline data first
   if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
     local dText = quranOfflineData.data[1]
-    local dTafsir = quranOfflineData.data[2]
+    local dTafsir1 = quranOfflineData.data[2]
+    local dTafsir2 = quranOfflineData.data[3]
 
     player.currentSurahData = {}
     local typeName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع "))
@@ -873,7 +877,8 @@ function loadDivisionDetails(type, number)
             audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
             numberInSurah = ayah.numberInSurah,
             surahName = surah.name,
-            tafsir = dTafsir.surahs[sIdx].ayahs[aIdx].text
+            tafsir = dTafsir1.surahs[sIdx].ayahs[aIdx].text,
+            tafsir2 = dTafsir2 and dTafsir2.surahs[sIdx].ayahs[aIdx].text
           })
         end
       end
@@ -899,9 +904,14 @@ function loadDivisionDetails(type, number)
 
     local decode_ok, json = pcall(cjson.decode, body)
     if decode_ok and json.code == 200 and json.data and #json.data >= 3 then
-      local dText = json.data[1]
-      local dTafsir = json.data[2]
-      local dAudio = json.data[3]
+      local dText, dTafsir, dAudio
+      for _, ed in ipairs(json.data) do
+        if ed.edition.identifier == "quran-simple" then dText = ed
+        elseif ed.edition.identifier == "ar.muyassar" then dTafsir = ed
+        elseif ed.edition.type == "audio" then dAudio = ed
+        end
+      end
+      dText = dText or json.data[1]; dTafsir = dTafsir or json.data[2]; dAudio = dAudio or json.data[3]
 
       player.currentSurahData = {}
       local typeName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع "))
@@ -998,10 +1008,17 @@ end
 function loadPages()
   setMainViewState("loading")
   local pages = {}
+  -- In offline data, we can find which surah is in which page easily
   for i=1, 604 do
+    local sub = "تصفح الصفحة رقم " .. i
+    if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
+       for sIdx, surah in ipairs(quranOfflineData.data[1].surahs) do
+         if surah.ayahs[1].page == i then sub = "بداية سورة " .. surah.name; break end
+       end
+    end
     table.insert(pages, {
       title = "صفحة " .. i,
-      subtitle = "تصفح الصفحة رقم " .. i,
+      subtitle = sub,
       number = i,
       type = "page"
     })
@@ -1595,7 +1612,8 @@ function loadSurahDetails(number, startAyah, endAyah)
   -- Try offline data first
   if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
     local dText = quranOfflineData.data[1].surahs[number]
-    local dTafsir = quranOfflineData.data[2].surahs[number]
+    local dTafsir1 = quranOfflineData.data[2].surahs[number]
+    local dTafsir2 = quranOfflineData.data[3] and quranOfflineData.data[3].surahs[number]
 
     if dText then
       player.currentSurahData = {}
@@ -1607,7 +1625,8 @@ function loadSurahDetails(number, startAyah, endAyah)
             text = ayah.text,
             audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
             numberInSurah = ayah.numberInSurah,
-            tafsir = dTafsir.ayahs[i].text
+            tafsir = dTafsir1.ayahs[i].text,
+            tafsir2 = dTafsir2 and dTafsir2.ayahs[i].text
           })
         end
       end
@@ -1636,10 +1655,19 @@ function loadSurahDetails(number, startAyah, endAyah)
       return
     end
     
-    local dataText = json.data[1]
-    local dataTafsir = json.data[2]
-    local dataAudio = json.data[3]
+    local dataText, dataTafsir, dataAudio
+    for _, edition in ipairs(json.data) do
+      if edition.edition.identifier == "quran-simple" then dataText = edition
+      elseif edition.edition.identifier == "ar.muyassar" then dataTafsir = edition
+      elseif edition.edition.type == "audio" then dataAudio = edition
+      end
+    end
     
+    -- Fallback if specific identifiers not found
+    dataText = dataText or json.data[1]
+    dataTafsir = dataTafsir or json.data[2]
+    dataAudio = dataAudio or json.data[3]
+
     -- التحقق الأهم: التأكد من وجود مصفوفة الآيات قبل استخدامها
     if not (dataText and dataText.ayahs and type(dataText.ayahs) == "table" and dataAudio and dataAudio.ayahs and type(dataAudio.ayahs) == "table") then
       Toast.makeText(activity, "خطأ: لم يتم العثور على بيانات الآيات لهذه السورة.", Toast.LENGTH_LONG).show()
@@ -1976,18 +2004,36 @@ function searchQuranOffline(query)
   local results = {}
   local listData = {}
   local dText = quranOfflineData.data[1]
-  local dTafsir = quranOfflineData.data[2]
+  local dTafsir1 = quranOfflineData.data[2]
+  local dTafsir2 = quranOfflineData.data[3]
+
+  -- Simple normalization for common Arabic letters
+  local function normalize(t)
+    if not t then return "" end
+    -- Remove Arabic diacritics (064B - 0652) and some others
+    -- In UTF-8 these are D9 8B (217 139) to D9 92 (217 146)
+    local res = t:gsub("[\217\139-\217\146]", "")
+    res = res:gsub("[\217\147-\217\152]", "") -- Extended diacritics
+    return res:gsub("[إأآا]", "ا"):gsub("ة", "ه"):gsub("[ىي]", "ي")
+  end
+  local normQuery = normalize(query)
 
   for sIdx, surah in ipairs(dText.surahs) do
     for aIdx, ayah in ipairs(surah.ayahs) do
-      if string.find(ayah.text, query, 1, true) then
+      local match = false
+      if string.find(ayah.text, query, 1, true) then match = true
+      elseif string.find(normalize(ayah.text), normQuery, 1, true) then match = true
+      end
+
+      if match then
         table.insert(results, {
           text = ayah.text,
           audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
           numberInSurah = ayah.numberInSurah,
           surahName = surah.name,
           surahNumber = sIdx,
-          tafsir = dTafsir.surahs[sIdx].ayahs[aIdx].text
+          tafsir = dTafsir1.surahs[sIdx].ayahs[aIdx].text,
+          tafsir2 = dTafsir2 and dTafsir2.surahs[sIdx].ayahs[aIdx].text
         })
         table.insert(listData, {
           tv_title = surah.name .. " - آية " .. ayah.numberInSurah,
@@ -2057,20 +2103,54 @@ end
 
 function showTafsirDialog(ayah)
   local colors = theme.colors
+  local views = {}
+
   local tafsirLayout = {
     LinearLayout, orientation = "vertical", padding = "24dp", backgroundColor = colors.card_bg,
-    { TextView, text = "تفسير الآية " .. ayah.numberInSurah, textSize = "20sp", style = "bold", textColor = colors.primary, layout_marginBottom = "16dp" },
-    { ScrollView, layout_width = "fill", layout_height = "300dp",
-      { TextView, text = ayah.tafsir or "التفسير غير متوفر حالياً لهذه الآية.", textSize = "18sp", textColor = colors.text_title, lineSpacingMultiplier = 1.4 }
+    {
+      LinearLayout, orientation = "horizontal", layout_width = "fill", layout_marginBottom = "16dp", gravity = "center_vertical",
+      { TextView, text = "تفسير الآية " .. ayah.numberInSurah, textSize = "20sp", style = "bold", textColor = colors.primary, layout_weight = 1 },
+      { Spinner, id = "spnTafsir", layout_width = "wrap_content" }
     },
-    { Button, text = "إغلاق", id = "btnCloseTafsir", layout_marginTop = "16dp", layout_gravity = "center" }
+    { ScrollView, layout_width = "fill", layout_height = "320dp",
+      { TextView, id = "txtTafsir", text = ayah.tafsir or "التفسير غير متوفر.", textSize = "18sp", textColor = colors.text_title, lineSpacingMultiplier = 1.4 }
+    },
+    {
+      LinearLayout, orientation = "horizontal", layout_width = "fill", layout_marginTop = "16dp",
+      { Button, text = "إغلاق", id = "btnCloseTafsir", layout_weight = 1 },
+      { Button, text = "مشاركة", id = "btnShareTafsir", layout_weight = 1, layout_marginLeft = "8dp" }
+    }
   }
 
   local builder = AlertDialog.Builder(activity)
   local dlg = builder.show()
-  dlg.setContentView(loadlayout(tafsirLayout))
-  setDesign(btnCloseTafsir, colors.primary, 12); btnCloseTafsir.setTextColor(Color.parseColor("#FFFFFF"))
-  btnCloseTafsir.onClick = function() dlg.dismiss() end
+  dlg.setContentView(loadlayout(tafsirLayout, views))
+
+  local tafsirBooks = {"التفسير الميسر", "تفسير الجلالين"}
+  views.spnTafsir.setAdapter(ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, tafsirBooks))
+
+  views.spnTafsir.setOnItemSelectedListener(AdapterView.OnItemSelectedListener{
+    onItemSelected = function(parent, view, pos, id)
+      if pos == 0 then
+        views.txtTafsir.text = ayah.tafsir or "غير متوفر"
+      else
+        views.txtTafsir.text = ayah.tafsir2 or "غير متوفر (يرجى تحميل بيانات الأوفلاين)"
+      end
+    end
+  })
+
+  setDesign(views.btnCloseTafsir, colors.card_bg, 12, 2, colors.primary); views.btnCloseTafsir.setTextColor(Color.parseColor(colors.primary))
+  setDesign(views.btnShareTafsir, colors.primary, 12); views.btnShareTafsir.setTextColor(Color.parseColor("#FFFFFF"))
+
+  views.btnCloseTafsir.onClick = function() dlg.dismiss() end
+  views.btnShareTafsir.onClick = function()
+    local book = tafsirBooks[views.spnTafsir.getSelectedItemPosition() + 1]
+    local shareText = "﴿ " .. ayah.text .. " ﴾\n\n" .. book .. ":\n" .. views.txtTafsir.text .. "\n\n📖 " .. player.currentSurahName .. " - آية " .. ayah.numberInSurah
+    local intent = Intent(Intent.ACTION_SEND)
+    intent.setType("text/plain")
+    intent.putExtra(Intent.EXTRA_TEXT, shareText)
+    activity.startActivity(Intent.createChooser(intent, "مشاركة التفسير..."))
+  end
 end
 
 function shareAyah(ayah)
@@ -2102,6 +2182,25 @@ function startApp()
   applyTheme()
   setRandomQuote()
   if showResumeCard then showResumeCard() end
+
+  if searchEdt then
+    searchEdt.addTextChangedListener{ onTextChanged = function(s)
+      local txt = tostring(s)
+      if currentViewType == "radio" then
+        updateRadioList(txt)
+      elseif currentViewType == "azkar_content" then
+        updateAzkarList(txt)
+      elseif currentViewType == "listening_reciters" then
+        displayReciters(txt)
+      elseif currentViewType == "listening_surahs" then
+        if updateReciterSurahsList then updateReciterSurahsList(txt) end
+      elseif (currentViewType == "surahs" or currentViewType == "quran_reading" or currentViewType == "memorization" or currentViewType == "juzs" or currentViewType == "pages") and #txt > 2 then
+        searchQuranOffline(txt)
+      else
+        updateList(txt)
+      end
+    end }
+  end
 
   -- Check for offline data
   if not quranOfflineData then
