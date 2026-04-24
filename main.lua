@@ -771,7 +771,7 @@ function updateList(filter)
   }
 
   local f = filter or ""
-  local dataSource = (currentViewType == "surahs" or currentViewType == "quran_reading") and currentSurahsList or allSurahsData
+  local dataSource = (currentViewType == "surahs" or currentViewType == "quran_reading" or currentViewType == "memorization") and currentSurahsList or allSurahsData
 
   if currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" then
     dataSource = allSurahsData
@@ -791,7 +791,7 @@ function updateList(filter)
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
       local item = filteredSurahs[position + 1]
-      if currentViewType == "surahs" then
+      if currentViewType == "surahs" or currentViewType == "memorization" then
         showRangeSelectionDialog(item)
       elseif currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" or currentViewType == "quran_reading" then
         handleDivisionClick(item)
@@ -855,7 +855,7 @@ function loadDivisionDetails(type, number)
 end
 
 function showMemorizationSection()
-  currentViewType = "surahs"
+  currentViewType = "memorization"
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "المحفظ القرآني - اختر سورة"
   mainFlipper.setDisplayedChild(1)
@@ -1441,7 +1441,7 @@ function setupPlayer(index)
   -- Reset section icons
   sectionIcon.setVisibility(View.GONE)
 
-  if currentViewType == "surahs" or currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "rubs" then
+  if (currentViewType == "surahs" or currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "rubs") and currentViewType ~= "memorization" then
     isContinuousMode = true
   elseif currentViewType == "radio" then
     isContinuousMode = false
