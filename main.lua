@@ -160,7 +160,7 @@ end
 loadAppData()
 
 -- ==========================================
--- 🛠️ 3. UI & ACCESSIBILITY HELPERS
+-- 🛠️ 3. UI COMPONENTS & ACCESSIBILITY HELPERS (الجديد والمطور)
 -- ==========================================
 
 function setDesign(view, colorHex, radius)
@@ -199,8 +199,43 @@ function announceAccess(text)
   end
 end
 
+-- 🌟 المكونات الذكية (Smart Components) لتخفيف الكود
+local function MenuCard(cardId, iconId, textId, iconSrc, title)
+  return {
+    LinearLayout,
+    id = cardId,
+    orientation = "vertical",
+    layout_width = "0",
+    layout_height = "fill",
+    layout_weight = 1,
+    gravity = "center",
+    layout_margin = "8dp",
+    { ImageView, src = iconSrc, layout_width = "48dp", layout_height = "48dp", id = iconId },
+    { TextView, text = title, textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = textId }
+  }
+end
+
+local function IndexButton(btnId, title, action)
+  return {
+    Button, id = btnId, text = title, layout_width = "fill", layout_marginBottom = "12dp", onClick = action
+  }
+end
+
+-- دالة مركزية لتصميم أي عنصر في أي قائمة (سور، أذكار، راديو)
+function getStandardListItem()
+  local colors = theme.colors
+  return {
+    LinearLayout, layout_width = "fill", padding = "6dp",
+    {
+      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = Color.parseColor(colors.card_bg), elevation = "2dp",
+      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = Color.parseColor(colors.text_title), gravity = "right" },
+      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = Color.parseColor(colors.primary), layout_marginTop = "4dp", gravity = "right" }
+    }
+  }
+end
+
 -- ==========================================
--- 📐 4. LAYOUT STRUCTURE
+-- 📱 4. LAYOUT STRUCTURE (الهيكل النظيف)
 -- ==========================================
 
 layout = {
@@ -212,12 +247,7 @@ layout = {
   
   --[TOOLBAR]
   {
-    LinearLayout,
-    layout_width = "fill",
-    padding = "16dp",
-    id = "toolbarLayout",
-    gravity = "center_vertical",
-    elevation = "4dp",
+    LinearLayout, layout_width = "fill", padding = "16dp", id = "toolbarLayout", gravity = "center_vertical", elevation = "4dp",
     { TextView, text = "تطبيق القرآن الكريم", textSize = "24sp", style = "bold", layout_weight = 1, id = "toolbar_title" },
     { ImageView, src = "@android:drawable/ic_menu_day", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_theme", layout_marginRight = "12dp", onClick = function() toggleDarkMode() end },
     { ImageView, src = "@android:drawable/ic_input_get", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_bookmarks", layout_marginRight = "12dp", onClick = function() showBookmarksDialog() end },
@@ -231,102 +261,27 @@ layout = {
     layout_width = "fill",
     layout_height = "fill",
 
-    -- PAGE 0: MAIN MENU
+    -- PAGE 0: MAIN MENU (تم تبسيطه باستخدام المكونات)
     {
-      LinearLayout,
-      orientation = "vertical",
-      layout_width = "fill",
-      layout_height = "fill",
-      padding = "16dp",
-      id = "mainMenuPage",
+      LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "16dp", id = "mainMenuPage",
       { TextView, text = "القائمة الرئيسية", textSize = "22sp", style = "bold", layout_marginTop = "16dp", layout_marginBottom = "24dp", id = "menuTitle", gravity = "center" },
-      {
-        LinearLayout,
-        orientation = "horizontal",
-        layout_width = "fill",
-        layout_height = "140dp",
-        {
-          LinearLayout,
-          id = "btnGoQuran",
-          orientation = "vertical",
-          layout_width = "0",
-          layout_height = "fill",
-          layout_weight = 1,
-          gravity = "center",
-          layout_margin = "8dp",
-          { ImageView, src = "@android:drawable/ic_menu_book", layout_width = "48dp", layout_height = "48dp", id = "imgQuran" },
-          { TextView, text = "المصحف", textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = "txtQuran" }
-        },
-        {
-          LinearLayout,
-          id = "btnGoMemorize",
-          orientation = "vertical",
-          layout_width = "0",
-          layout_height = "fill",
-          layout_weight = 1,
-          gravity = "center",
-          layout_margin = "8dp",
-          { ImageView, src = "@android:drawable/ic_btn_speak_now", layout_width = "48dp", layout_height = "48dp", id = "imgMemorize" },
-          { TextView, text = "المحفظ", textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = "txtMemorize" }
-        }
+
+      { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "140dp",
+        MenuCard("btnGoQuran", "imgQuran", "txtQuran", "@android:drawable/ic_menu_book", "المصحف"),
+        MenuCard("btnGoMemorize", "imgMemorize", "txtMemorize", "@android:drawable/ic_btn_speak_now", "المحفظ")
       },
-      {
-        LinearLayout,
-        orientation = "horizontal",
-        layout_width = "fill",
-        layout_height = "140dp",
-        {
-          LinearLayout,
-          id = "btnGoAzkar",
-          orientation = "vertical",
-          layout_width = "0",
-          layout_height = "fill",
-          layout_weight = 1,
-          gravity = "center",
-          layout_margin = "8dp",
-          { ImageView, src = "@android:drawable/btn_star_big_on", layout_width = "48dp", layout_height = "48dp", id = "imgAzkar" },
-          { TextView, text = "الأذكار", textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = "txtAzkar" }
-        },
-        {
-          LinearLayout,
-          id = "btnGoRadio",
-          orientation = "vertical",
-          layout_width = "0",
-          layout_height = "fill",
-          layout_weight = 1,
-          gravity = "center",
-          layout_margin = "8dp",
-          { ImageView, src = "@android:drawable/ic_lock_silent_mode_off", layout_width = "48dp", layout_height = "48dp", id = "imgRadio" },
-          { TextView, text = "الراديو", textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = "txtRadio" }
-        }
+      { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "140dp",
+        MenuCard("btnGoAzkar", "imgAzkar", "txtAzkar", "@android:drawable/btn_star_big_on", "الأذكار"),
+        MenuCard("btnGoRadio", "imgRadio", "txtRadio", "@android:drawable/ic_lock_silent_mode_off", "الراديو")
       },
-      {
-        LinearLayout,
-        orientation = "horizontal",
-        layout_width = "fill",
-        layout_height = "140dp",
-        {
-          LinearLayout,
-          id = "btnGoListening",
-          orientation = "vertical",
-          layout_width = "0",
-          layout_height = "fill",
-          layout_weight = 1,
-          gravity = "center",
-          layout_margin = "8dp",
-          { ImageView, src = "@android:drawable/ic_lock_silent_mode", layout_width = "48dp", layout_height = "48dp", id = "imgListening" },
-          { TextView, text = "الاستماع", textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = "txtListening" }
-        },
-        { View, layout_width = "0", layout_height = "fill", layout_weight = 1, layout_margin = "8dp" } -- Spacer
+      { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "140dp",
+        MenuCard("btnGoListening", "imgListening", "txtListening", "@android:drawable/ic_lock_silent_mode", "الاستماع"),
+        { View, layout_width = "0", layout_height = "fill", layout_weight = 1, layout_margin = "8dp" }
       },
+
+      -- بطاقة الاستئناف
       {
-        LinearLayout,
-        id = "resumeCard",
-        orientation = "vertical",
-        layout_width = "fill",
-        padding = "16dp",
-        layout_marginTop = "20dp",
-        visibility = View.GONE,
+        LinearLayout, id = "resumeCard", orientation = "vertical", layout_width = "fill", padding = "16dp", layout_marginTop = "20dp", visibility = View.GONE,
         { TextView, id = "resumeTitle", text = "استئناف الحفظ", textSize = "18sp", style = "bold" },
         { TextView, id = "resumeInfo", text = "", textSize = "16sp", layout_marginTop = "4dp" },
         { Button, id = "btnResume", text = "متابعة من حيث توقفت", layout_width = "fill", layout_marginTop = "12dp", onClick = function() resumeLastProgress() end }
@@ -335,132 +290,43 @@ layout = {
     
     -- PAGE 1: LIST VIEW
     {
-      FrameLayout,
-      layout_width = "fill",
-      layout_height = "fill",
-      
-      -- واجهة قائمة السور مع البحث
+      FrameLayout, layout_width = "fill", layout_height = "fill",
       {
-        LinearLayout,
-        id = "surahListContainer",
-        orientation = "vertical",
-        layout_width = "fill",
-        padding = "12dp",
-        visibility = View.GONE,
-        { TextView, id = "listTitle", text = "قائمة السور", textSize = "20sp", style = "bold", layout_marginBottom = "8dp", visibility = View.GONE },
-        { EditText, id = "searchEdt", hint = "بحث باسم السورة أو الرقم...", layout_width = "fill", padding = "16dp", textSize = "18sp", singleLine = true, layout_marginBottom = "12dp" },
+        LinearLayout, id = "surahListContainer", orientation = "vertical", layout_width = "fill", padding = "12dp", visibility = View.GONE,
+        { TextView, id = "listTitle", text = "القائمة", textSize = "20sp", style = "bold", layout_marginBottom = "8dp", visibility = View.GONE },
+        { EditText, id = "searchEdt", hint = "بحث...", layout_width = "fill", padding = "16dp", textSize = "18sp", singleLine = true, layout_marginBottom = "12dp" },
         { ListView, id = "surahList", layout_width = "fill", layout_height = "fill", dividerHeight = "0", selector = ColorDrawable(0), clipToPadding = false, paddingBottom = "24dp" }
       },
-      
-      -- مؤشر التحميل
+      { ProgressBar, id = "loadingIndicator", layout_width = "wrap_content", layout_height = "wrap_content", layout_gravity = "center", visibility = View.VISIBLE },
       {
-        ProgressBar,
-        id = "loadingIndicator",
-        layout_width = "wrap_content",
-        layout_height = "wrap_content",
-        layout_gravity = "center",
-        visibility = View.VISIBLE
-      },
-      
-      -- واجهة عرض الخطأ
-      {
-        LinearLayout,
-        id = "errorContainer",
-        orientation = "vertical",
-        layout_width = "fill",
-        layout_height = "fill",
-        gravity = "center",
-        padding = "24dp",
-        visibility = View.GONE,
-        {
-          TextView,
-          id = "errorText",
-          text = "حدث خطأ أثناء تحميل البيانات.\nيرجى التحقق من اتصالك بالإنترنت.",
-          textSize = "18sp",
-          gravity = "center",
-          layout_marginBottom = "16dp"
-        },
-        {
-          Button,
-          id = "btnRetry",
-          text = "إعادة المحاولة",
-          layout_width = "wrap_content",
-          paddingLeft = "32dp",
-          paddingRight = "32dp",
-          onClick = function() loadSurahs() end
-        }
+        LinearLayout, id = "errorContainer", orientation = "vertical", layout_width = "fill", layout_height = "fill", gravity = "center", padding = "24dp", visibility = View.GONE,
+        { TextView, id = "errorText", text = "حدث خطأ أثناء تحميل البيانات.\nيرجى التحقق من اتصالك بالإنترنت.", textSize = "18sp", gravity = "center", layout_marginBottom = "16dp" },
+        { Button, id = "btnRetry", text = "إعادة المحاولة", layout_width = "wrap_content", paddingLeft = "32dp", paddingRight = "32dp", onClick = function() loadSurahs() end }
       }
     },
 
     -- PAGE 2: PLAYER / READING MODE
     {
-      LinearLayout,
-      orientation = "vertical",
-      layout_width = "fill",
-      layout_height = "fill",
-      padding = "16dp",
-      gravity = "center_horizontal",
-      id = "playerPage",
+      LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "16dp", gravity = "center_horizontal", id = "playerPage",
+      { ImageView, id = "sectionIcon", layout_width = "80dp", layout_height = "80dp", layout_marginTop = "10dp", layout_marginBottom = "10dp", visibility = View.GONE },
       {
-         ImageView,
-         id = "sectionIcon",
-         layout_width = "80dp",
-         layout_height = "80dp",
-         layout_marginTop = "10dp",
-         layout_marginBottom = "10dp",
-         visibility = View.GONE
-      },
-      {
-        LinearLayout,
-        orientation = "horizontal",
-        layout_width = "fill",
-        gravity = "center_vertical",
-        layout_marginBottom = "8dp",
+        LinearLayout, orientation = "horizontal", layout_width = "fill", gravity = "center_vertical", layout_marginBottom = "8dp",
         { TextView, id = "playerTitle", text = "...", textSize = "24sp", style = "bold", layout_weight = 1, gravity = "center" },
         { ImageView, src = "@android:drawable/ic_input_add", layout_width = "36dp", layout_height = "36dp", id = "btnAddBookmark", layout_marginRight = "8dp", onClick = function() addCurrentBookmark() end },
         { ImageView, src = "@android:drawable/ic_menu_share", layout_width = "36dp", layout_height = "36dp", id = "btnShare", onClick = function() shareCurrentAyah() end }
       },
       { TextView, id = "reciterNameDisplay", text = "...", textSize = "16sp", gravity = "center", layout_marginBottom = "16dp" },
-
-      -- CONTAINER FOR BOTH MODES
       {
-        FrameLayout,
-        layout_width = "fill",
-        layout_height = "0",
-        layout_weight = 1,
-        {
-          LinearLayout,
-          id = "ayahCard",
-          layout_width = "fill",
-          layout_height = "fill",
-          gravity = "center",
-          padding = "8dp",
-          { ScrollView, layout_width = "fill", layout_height = "wrap_content", fillViewport = true, { TextView, id = "ayahText", text = "...", textSize = config.font_size .. "sp", gravity = "center", typeface = Typeface.DEFAULT_BOLD, padding = "16dp" } }
-        },
-        {
-          ListView,
-          id = "continuousListView",
-          layout_width = "fill",
-          layout_height = "fill",
-          dividerHeight = "0",
-          visibility = View.GONE
-        }
+        FrameLayout, layout_width = "fill", layout_height = "0", layout_weight = 1,
+        { LinearLayout, id = "ayahCard", layout_width = "fill", layout_height = "fill", gravity = "center", padding = "8dp", { ScrollView, layout_width = "fill", layout_height = "wrap_content", fillViewport = true, { TextView, id = "ayahText", text = "...", textSize = config.font_size .. "sp", gravity = "center", typeface = Typeface.DEFAULT_BOLD, padding = "16dp" } } },
+        { ListView, id = "continuousListView", layout_width = "fill", layout_height = "fill", dividerHeight = "0", visibility = View.GONE }
       },
-
       { LinearLayout, id = "progressContainer", orientation = "horizontal", layout_width = "fill", gravity = "center", layout_marginTop = "8dp", { TextView, id = "progressText", text = "0 / 0", textSize = "14sp", gravity = "center" } },
       {
-        LinearLayout,
-        id = "controlsContainer",
-        orientation = "vertical",
-        layout_width = "fill",
-        gravity = "center",
-        layout_marginTop = "12dp",
+        LinearLayout, id = "controlsContainer", orientation = "vertical", layout_width = "fill", gravity = "center", layout_marginTop = "12dp",
         { TextView, id = "statusText", text = "جاهز", textSize = "16sp", gravity = "center", layout_marginBottom = "16dp", style = "bold" },
         {
-          LinearLayout,
-          orientation = "horizontal",
-          layout_width = "fill",
-          gravity = "center",
+          LinearLayout, orientation = "horizontal", layout_width = "fill", gravity = "center",
           { Button, text = "السابق", id = "btnPrev", layout_width = "90dp", textColor = "#FFFFFF", style = "bold", onClick = function() playPrev() end },
           { Button, text = "▶", id = "btnPlay", layout_width = "70dp", layout_height = "70dp", textSize = "30sp", layout_marginLeft = "20dp", layout_marginRight = "20dp", onClick = function() togglePlay() end },
           { Button, text = "التالي", id = "btnNext", layout_width = "90dp", textColor = "#FFFFFF", style = "bold", onClick = function() playNext() end }
@@ -469,20 +335,14 @@ layout = {
       { Button, text = "عودة للقائمة", id = "btnBack", layout_marginTop = "16dp", elevation = "0", onClick = function() stopAudio(); mainFlipper.setDisplayedChild(lastIndex or 1) end }
     },
 
-    -- PAGE 3: INDEX TYPE SELECTION
+    -- PAGE 3: INDEX TYPE SELECTION (تم تبسيطه)
     {
-      LinearLayout,
-      orientation = "vertical",
-      layout_width = "fill",
-      layout_height = "fill",
-      padding = "24dp",
-      gravity = "center",
-      id = "indexTypePage",
+      LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "24dp", gravity = "center", id = "indexTypePage",
       { TextView, text = "اختر طريقة التصفح", textSize = "24sp", style = "bold", layout_marginBottom = "30dp", id = "indexTitle" },
-      { Button, id = "btnIndexSurah", text = "السور", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("surahs") end },
-      { Button, id = "btnIndexJuz", text = "الأجزاء", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("juzs") end },
-      { Button, id = "btnIndexPage", text = "الصفحات", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("pages") end },
-      { Button, id = "btnIndexRub", text = "أرباع الأحزاب", layout_width = "fill", layout_marginBottom = "12dp", onClick = function() showQuranList("rubs") end },
+      IndexButton("btnIndexSurah", "السور", function() showQuranList("surahs") end),
+      IndexButton("btnIndexJuz", "الأجزاء", function() showQuranList("juzs") end),
+      IndexButton("btnIndexPage", "الصفحات", function() showQuranList("pages") end),
+      IndexButton("btnIndexRub", "أرباع الأحزاب", function() showQuranList("rubs") end),
       { Button, text = "عودة", id = "btnBackFromIndex", layout_marginTop = "20dp", onClick = function() mainFlipper.setDisplayedChild(0) end },
     }
   }
@@ -787,15 +647,7 @@ end
 
 function updateList(filter)
   local listData, filteredSurahs = {}, {}
-  local colors = theme.colors
-  local itemLayout = {
-    LinearLayout, layout_width = "fill", padding = "6dp",
-    {
-      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = Color.parseColor(colors.card_bg), elevation = "2dp",
-      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = Color.parseColor(colors.text_title) },
-      { TextView, id = "tv_subtitle", textSize = "16sp", textColor = Color.parseColor(colors.text_body), layout_marginTop = "4dp" }
-    }
-  }
+  local itemLayout = getStandardListItem()
 
   local f = filter or ""
   local dataSource = (currentViewType == "surahs" or currentViewType == "quran_reading" or currentViewType == "memorization") and currentSurahsList or allSurahsData
@@ -1061,15 +913,7 @@ end
 
 function updateAzkarList(filter)
   local listData, filteredItems = {}, {}
-  local colors = theme.colors
-  local itemLayout = {
-    LinearLayout, layout_width = "fill", padding = "8dp",
-    {
-      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = Color.parseColor(colors.card_bg), elevation = "2dp",
-      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = Color.parseColor(colors.text_title), gravity = "right" },
-      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = Color.parseColor(colors.primary), layout_marginTop = "8dp" }
-    }
-  }
+  local itemLayout = getStandardListItem()
 
   local f = filter or ""
   for i, s in ipairs(currentAzkarItems) do
@@ -1290,15 +1134,7 @@ end
 
 function updateRadioList(filter)
   local listData, filteredItems = {}, {}
-  local colors = theme.colors
-  local itemLayout = {
-    LinearLayout, layout_width = "fill", padding = "8dp",
-    {
-      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = Color.parseColor(colors.card_bg), elevation = "2dp",
-      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = Color.parseColor(colors.text_title), gravity = "right" },
-      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = Color.parseColor(colors.primary), layout_marginTop = "8dp" }
-    }
-  }
+  local itemLayout = getStandardListItem()
 
   local f = filter or ""
   for i, s in ipairs(currentRadiosList) do
@@ -1372,15 +1208,7 @@ end
 function displayReciters(filter)
   currentRecitersList = {}
   local listData, filteredItems = {}, {}
-  local colors = theme.colors
-  local itemLayout = {
-    LinearLayout, layout_width = "fill", padding = "8dp",
-    {
-      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = Color.parseColor(colors.card_bg), elevation = "2dp",
-      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = Color.parseColor(colors.text_title), gravity = "right" },
-      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = Color.parseColor(colors.primary), layout_marginTop = "8dp" }
-    }
-  }
+  local itemLayout = getStandardListItem()
 
   local f = filter or ""
   for i, r in ipairs(allRecitersData) do
@@ -1422,14 +1250,7 @@ function showReciterSurahs(reciter)
   end
 
   local listData = {}
-  local itemLayout = {
-    LinearLayout, layout_width = "fill", padding = "8dp",
-    {
-      LinearLayout, orientation = "vertical", layout_width = "fill", padding = "16dp", backgroundColor = Color.parseColor(theme.colors.card_bg), elevation = "2dp",
-      { TextView, id = "tv_title", textSize = "20sp", style = "bold", textColor = Color.parseColor(theme.colors.text_title), gravity = "right" },
-      { TextView, id = "tv_subtitle", textSize = "14sp", textColor = Color.parseColor(theme.colors.primary), layout_marginTop = "8dp" }
-    }
-  }
+  local itemLayout = getStandardListItem()
 
   -- Note: We need names of surahs. We can use allSurahsData if already loaded,
   -- but let's assume we have a basic list or use numbers.
