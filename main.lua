@@ -203,6 +203,16 @@ function announceAccess(text)
   end
 end
 
+-- دالة تصنع تدرج لوني إسلامي مبهج (Gradient)
+function setGradientDesign(view, colorStart, colorEnd, radius)
+  if not view then return end
+  local colors = {Color.parseColor(colorStart), Color.parseColor(colorEnd)}
+  local drawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors)
+  drawable.setCornerRadius(radius or 16)
+  view.setBackground(drawable)
+  if Build.VERSION.SDK_INT >= 21 then view.setElevation(6) end
+end
+
 -- 🌟 المكونات الذكية (Smart Components) لتخفيف الكود
 local function MenuCard(cardId, iconId, textId, iconSrc, title)
   return {
@@ -214,8 +224,17 @@ local function MenuCard(cardId, iconId, textId, iconSrc, title)
     layout_weight = 1,
     gravity = "center",
     layout_margin = "8dp",
-    { ImageView, src = iconSrc, layout_width = "48dp", layout_height = "48dp", id = iconId },
-    { TextView, text = title, textSize = "18sp", style = "bold", layout_marginTop = "12dp", id = textId }
+    padding = "16dp", -- مسافة داخلية ليتنفس الكارت
+    {
+      -- حاوية دائرية للأيقونة
+      LinearLayout,
+      id = cardId .. "_icon_bg",
+      layout_width = "64dp",
+      layout_height = "64dp",
+      gravity = "center",
+      { ImageView, src = iconSrc, layout_width = "36dp", layout_height = "36dp", id = iconId }
+    },
+    { TextView, text = title, textSize = "18sp", style = "bold", layout_marginTop = "16dp", id = textId }
   }
 end
 
@@ -265,31 +284,41 @@ layout = {
     layout_width = "fill",
     layout_height = "fill",
 
-    -- PAGE 0: MAIN MENU (تم تبسيطه باستخدام المكونات)
+    -- PAGE 0: MAIN MENU (الواجهة المبهجة الجديدة)
     {
-      LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "16dp", id = "mainMenuPage",
-      { TextView, text = "القائمة الرئيسية", textSize = "22sp", style = "bold", layout_marginTop = "16dp", layout_marginBottom = "24dp", id = "menuTitle", gravity = "center" },
+      LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", id = "mainMenuPage",
+      { ScrollView, layout_width = "fill", layout_height = "fill", fillViewport = true, {
+        LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "16dp",
 
-      { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "140dp",
-        MenuCard("btnGoQuran", "imgQuran", "txtQuran", "@android:drawable/ic_menu_book", "المصحف"),
-        MenuCard("btnGoMemorize", "imgMemorize", "txtMemorize", "@android:drawable/ic_btn_speak_now", "المحفظ")
-      },
-      { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "140dp",
-        MenuCard("btnGoAzkar", "imgAzkar", "txtAzkar", "@android:drawable/btn_star_big_on", "الأذكار"),
-        MenuCard("btnGoRadio", "imgRadio", "txtRadio", "@android:drawable/ic_lock_silent_mode_off", "الراديو")
-      },
-      { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "140dp",
-        MenuCard("btnGoListening", "imgListening", "txtListening", "@android:drawable/ic_lock_silent_mode", "الاستماع"),
-        { View, layout_width = "0", layout_height = "fill", layout_weight = 1, layout_margin = "8dp" }
-      },
+        -- البانر الإسلامي الترحيبي (Hero Banner)
+        {
+          LinearLayout, id = "welcomeBanner", orientation = "vertical", layout_width = "fill", padding = "24dp", layout_marginBottom = "24dp", gravity = "center",
+          { TextView, id = "bismillahText", text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", textSize = "24sp", style = "bold", layout_marginBottom = "8dp" },
+          { TextView, id = "quoteText", text = "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ", textSize = "16sp" }
+        },
 
-      -- بطاقة الاستئناف
-      {
-        LinearLayout, id = "resumeCard", orientation = "vertical", layout_width = "fill", padding = "16dp", layout_marginTop = "20dp", visibility = View.GONE,
-        { TextView, id = "resumeTitle", text = "استئناف الحفظ", textSize = "18sp", style = "bold" },
-        { TextView, id = "resumeInfo", text = "", textSize = "16sp", layout_marginTop = "4dp" },
-        { Button, id = "btnResume", text = "متابعة من حيث توقفت", layout_width = "fill", layout_marginTop = "12dp", onClick = function() resumeLastProgress() end }
-      },
+        -- شبكة الكروت (Cards Grid)
+        { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "150dp",
+          MenuCard("btnGoQuran", "imgQuran", "txtQuran", "@android:drawable/ic_menu_book", "المصحف"),
+          MenuCard("btnGoMemorize", "imgMemorize", "txtMemorize", "@android:drawable/ic_btn_speak_now", "المحفظ")
+        },
+        { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "150dp",
+          MenuCard("btnGoAzkar", "imgAzkar", "txtAzkar", "@android:drawable/btn_star_big_on", "الأذكار"),
+          MenuCard("btnGoRadio", "imgRadio", "txtRadio", "@android:drawable/ic_lock_silent_mode_off", "الراديو")
+        },
+        { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "150dp",
+          MenuCard("btnGoListening", "imgListening", "txtListening", "@android:drawable/ic_lock_silent_mode", "الاستماع"),
+          { View, layout_width = "0", layout_height = "fill", layout_weight = 1, layout_margin = "8dp" }
+        },
+
+        -- بطاقة الاستئناف
+        {
+          LinearLayout, id = "resumeCard", orientation = "vertical", layout_width = "fill", padding = "16dp", layout_marginTop = "20dp", visibility = View.GONE,
+          { TextView, id = "resumeTitle", text = "مواصلة القراءة", textSize = "18sp", style = "bold" },
+          { TextView, id = "resumeInfo", text = "", textSize = "16sp", layout_marginTop = "4dp" },
+          { Button, id = "btnResume", text = "متابعة من حيث توقفت", layout_width = "fill", layout_marginTop = "12dp", onClick = function() resumeLastProgress() end }
+        },
+      }}
     },
     
     -- PAGE 1: LIST VIEW
@@ -366,7 +395,23 @@ function applyTheme()
   setDesign(toolbarLayout, colors.primary, 0)
 
   -- Main Menu Styling (Cards)
-  if menuTitle then menuTitle.setTextColor(Color.parseColor(colors.text_title)) end
+  if welcomeBanner then
+    if currentThemeMode == "dark" then
+      setGradientDesign(welcomeBanner, colors.primary_dark, "#000000", dimens.radius)
+    else
+      setGradientDesign(welcomeBanner, colors.primary, colors.primary_dark, dimens.radius)
+    end
+  end
+  if bismillahText then bismillahText.setTextColor(Color.parseColor(colors.text_white)) end
+  if quoteText then quoteText.setTextColor(Color.parseColor(colors.accent)) end
+
+  -- تلوين دوائر الأيقونات داخل الكروت (لون شفاف خفيف من الـ Primary)
+  local softIconBgColor = currentThemeMode == "dark" and "#2680CBC4" or "#2600695C" -- لون شبه شفاف
+  if btnGoQuran_icon_bg then setCircleDesign(btnGoQuran_icon_bg, softIconBgColor) end
+  if btnGoMemorize_icon_bg then setCircleDesign(btnGoMemorize_icon_bg, softIconBgColor) end
+  if btnGoAzkar_icon_bg then setCircleDesign(btnGoAzkar_icon_bg, softIconBgColor) end
+  if btnGoRadio_icon_bg then setCircleDesign(btnGoRadio_icon_bg, softIconBgColor) end
+  if btnGoListening_icon_bg then setCircleDesign(btnGoListening_icon_bg, softIconBgColor) end
   setDesign(btnGoQuran, colors.card_bg, dimens.radius)
   setDesign(btnGoMemorize, colors.card_bg, dimens.radius)
   setDesign(btnGoAzkar, colors.card_bg, dimens.radius)
