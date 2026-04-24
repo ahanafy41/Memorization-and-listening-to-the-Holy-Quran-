@@ -198,8 +198,14 @@ function loadAppData()
   if offlineFile then
     local content = offlineFile:read("*a")
     offlineFile:close()
-    local success, data = pcall(cjson.decode, content)
-    if success then quranOfflineData = data end
+    if #content > 1000 then -- Simple size check
+      local success, data = pcall(cjson.decode, content)
+      if success and data and data.data and #data.data >= 3 then
+        quranOfflineData = data
+      else
+        Toast.makeText(activity, "بيانات الأوفلاين تالفة، يرجى إعادة التحميل", Toast.LENGTH_LONG).show()
+      end
+    end
   end
 end
 
@@ -752,8 +758,6 @@ function httpGet(url, callback)
 end
 
 function loadSurahs()
-  setMainViewState("loading")
-  
   -- Attempt to load from offline data first
   if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
     local surahs = quranOfflineData.data[1].surahs
@@ -974,7 +978,7 @@ function showQuranList(type)
 end
 
 function loadJuzs()
-  setMainViewState("loading")
+  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
   local juzs = {}
   for i=1, 30 do
     table.insert(juzs, {
@@ -990,7 +994,7 @@ function loadJuzs()
 end
 
 function loadRubs()
-  setMainViewState("loading")
+  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
   local rubs = {}
   for i=1, 240 do
     table.insert(rubs, {
@@ -1006,7 +1010,7 @@ function loadRubs()
 end
 
 function loadPages()
-  setMainViewState("loading")
+  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
   local pages = {}
   -- In offline data, we can find which surah is in which page easily
   for i=1, 604 do
@@ -1029,7 +1033,7 @@ function loadPages()
 end
 
 function loadHizbs()
-  setMainViewState("loading")
+  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
   local hizbs = {}
   for i=1, 60 do
     table.insert(hizbs, {
@@ -1822,6 +1826,14 @@ function playAyahInContinuous(index)
 end
 
 function setupMediaPlayer(url)
+  if url and string.match(url, "^http") then
+     local cm = activity.getSystemService(Context.CONNECTIVITY_SERVICE)
+     local info = cm.getActiveNetworkInfo()
+     if not (info and info.isConnected()) then
+        Toast.makeText(activity, "التشغيل الصوتي يتطلب إنترنت 🌐", Toast.LENGTH_SHORT).show()
+     end
+  end
+
   stopAudio()
   player.isPlaying = true
   player.currentAudioUrl = url
