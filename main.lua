@@ -22,25 +22,25 @@ local themes = {
   light = {
     name = "فاتح",
     colors = {
-      primary = "#00695C",
-      primary_dark = "#004D40",
-      accent = "#FDD835",
-      background = "#F5F5F5",
+      primary = "#00897B", -- أخضر إسلامي حيوي
+      primary_dark = "#00695C",
+      accent = "#C49102", -- ذهبي غامق وواضح
+      background = "#F1F8E9", -- خلفية مائلة للأخضر الفاتح جداً
       card_bg = "#FFFFFF",
-      text_title = "#212121",
-      text_body = "#424242",
+      text_title = "#1B5E20", -- أخضر غامق جداً للنصوص
+      text_body = "#4E342E", -- بني دافئ للنصوص الفرعية
       text_white = "#FFFFFF",
-      bookmark_icon = "#FF5722",
-      share_icon = "#2196F3",
+      bookmark_icon = "#E64A19",
+      share_icon = "#1976D2",
       error_text = "#D32F2F"
     }
   },
   dark = {
     name = "داكن",
     colors = {
-      primary = "#00897B",
-      primary_dark = "#00695C",
-      accent = "#FFD54F",
+      primary = "#80CBC4", -- أخضر فاتح مريح للعين في الوضع الداكن
+      primary_dark = "#004D40",
+      accent = "#FFD54F", -- ذهبي مشرق
       background = "#121212",
       card_bg = "#1E1E1E",
       text_title = "#FFFFFF",
@@ -79,8 +79,28 @@ local reciters = {
 }
 
 local quranSurahNames = {
-  "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"
+  "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الالذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"
 }
+
+local inspirationalVerses = {
+  "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ",
+  "وَقُلْ رَبِّ زِدْنِي عِلْمًا",
+  "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
+  "فَاذْكُرُونِي أَذْكُرْكُمْ",
+  "لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ",
+  "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ",
+  "وَأَحْسِنُوا إِنَّ اللَّهَ يُحِبُّ الْمُحْسِنِينَ",
+  "رَبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِن ذُرِّيَّتِي",
+  "إِنَّ اللَّهَ مَعَ الصَّابِرِينَ",
+  "وَاعْتَصِمُوا بِحَبْلِ اللَّهِ جَمِيعًا"
+}
+
+function setRandomQuote()
+  if not quoteText then return end
+  math.randomseed(os.time())
+  local verse = inspirationalVerses[math.random(#inspirationalVerses)]
+  quoteText.text = verse
+end
 
 local player = {
   media = MediaPlayer(),
@@ -167,12 +187,15 @@ loadAppData()
 -- 🛠️ 3. UI COMPONENTS & ACCESSIBILITY HELPERS (الجديد والمطور)
 -- ==========================================
 
-function setDesign(view, colorHex, radius)
+function setDesign(view, colorHex, radius, strokeWidth, strokeColor)
   if not view then return end
   local drawable = GradientDrawable()
   drawable.setShape(GradientDrawable.RECTANGLE)
   drawable.setColor(Color.parseColor(colorHex))
   drawable.setCornerRadius(radius or dimens.radius)
+  if strokeWidth and strokeColor then
+    drawable.setStroke(strokeWidth, Color.parseColor(strokeColor))
+  end
   view.setBackground(drawable)
   if Build.VERSION.SDK_INT >= 21 then view.setElevation(4) end
 end
@@ -412,10 +435,12 @@ function applyTheme()
   if btnGoAzkar_icon_bg then setCircleDesign(btnGoAzkar_icon_bg, softIconBgColor) end
   if btnGoRadio_icon_bg then setCircleDesign(btnGoRadio_icon_bg, softIconBgColor) end
   if btnGoListening_icon_bg then setCircleDesign(btnGoListening_icon_bg, softIconBgColor) end
-  setDesign(btnGoQuran, colors.card_bg, dimens.radius)
-  setDesign(btnGoMemorize, colors.card_bg, dimens.radius)
-  setDesign(btnGoAzkar, colors.card_bg, dimens.radius)
-  setDesign(btnGoRadio, colors.card_bg, dimens.radius)
+
+  local strokeColor = colors.primary .. "4D" -- 30% opacity of primary color
+  setDesign(btnGoQuran, colors.card_bg, dimens.radius, 3, strokeColor)
+  setDesign(btnGoMemorize, colors.card_bg, dimens.radius, 3, strokeColor)
+  setDesign(btnGoAzkar, colors.card_bg, dimens.radius, 3, strokeColor)
+  setDesign(btnGoRadio, colors.card_bg, dimens.radius, 3, strokeColor)
 
   if txtQuran then txtQuran.setTextColor(Color.parseColor(colors.text_title)) end
   if txtMemorize then txtMemorize.setTextColor(Color.parseColor(colors.text_title)) end
@@ -429,7 +454,7 @@ function applyTheme()
   if imgRadio then imgRadio.setColorFilter(Color.parseColor(colors.primary)) end
   if imgListening then imgListening.setColorFilter(Color.parseColor(colors.primary)) end
 
-  setDesign(btnGoListening, colors.card_bg, dimens.radius)
+  setDesign(btnGoListening, colors.card_bg, dimens.radius, 3, strokeColor)
 
   local function addLongClick(v, t)
     if not v then return end
@@ -1792,6 +1817,7 @@ end
 
 function startApp()
   applyTheme()
+  setRandomQuote()
   if showResumeCard then showResumeCard() end
 
   -- Card Click Listeners
