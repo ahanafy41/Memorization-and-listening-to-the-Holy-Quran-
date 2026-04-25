@@ -150,7 +150,22 @@ local lastProgress = {
 }
 
 local quranOfflineData = nil
-local quranOfflinePath = activity.getFilesDir().getPath() .. "/quran_offline.json"
+-- Using External Files Dir makes it visible in: Android/data/[pkg]/files/quran_offline.json
+local quranOfflinePath = activity.getExternalFilesDir(nil).getPath() .. "/quran_offline.json"
+
+-- Simple Migration from old internal path
+local oldInternalPath = activity.getFilesDir().getPath() .. "/quran_offline.json"
+pcall(function()
+  if File(oldInternalPath).exists() and not File(quranOfflinePath).exists() then
+     local oldFile = io.open(oldInternalPath, "r")
+     local content = oldFile:read("*a")
+     oldFile:close()
+     local newFile = io.open(quranOfflinePath, "w")
+     newFile:write(content)
+     newFile:close()
+     os.remove(oldInternalPath)
+  end
+end)
 
 -- ==========================================
 -- 💾 2. DATA PERSISTENCE (حفظ البيانات)
