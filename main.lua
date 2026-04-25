@@ -150,7 +150,7 @@ local lastProgress = {
 }
 
 local quranOfflineData = nil
-local quranOfflinePath = activity.getFilesDir().getPath() .. "/quran_offline_v2.json"
+local quranOfflinePath = activity.getFilesDir().getPath() .. "/quran_offline.json"
 
 -- ==========================================
 -- 💾 2. DATA PERSISTENCE (حفظ البيانات)
@@ -200,7 +200,7 @@ function loadAppData()
     offlineFile:close()
     if #content > 1000 then -- Simple size check
       local success, data = pcall(cjson.decode, content)
-      if success and data and data.data and #data.data >= 3 then
+      if success and data and data.data and #data.data >= 2 then
         quranOfflineData = data
       else
         Toast.makeText(activity, "بيانات الأوفلاين تالفة، يرجى إعادة التحميل", Toast.LENGTH_LONG).show()
@@ -751,8 +751,10 @@ function httpGet(url, callback)
   Http.get(url, function(code, body)
     if code == 200 and body then 
       callback(true, body) 
+    elseif code == -1 then
+      callback(false, "لا يوجد اتصال بالإنترنت")
     else 
-      callback(false, "Error code: " .. tostring(code)) 
+      callback(false, "خطأ من الخادم: " .. tostring(code))
     end
   end)
 end
@@ -778,6 +780,8 @@ function loadSurahs()
     return
   end
 
+  setMainViewState("loading")
+
   local url = BaseURL .. "/surah"
   httpGet(url, function(success, body)
     if success then
@@ -800,9 +804,11 @@ function loadSurahs()
         setMainViewState("content")
       else
         setMainViewState("error")
+        errorText.text = "فشل في تحليل البيانات (JSON Error)"
       end
     else
       setMainViewState("error")
+      errorText.text = "فشل في التحميل: " .. tostring(body)
     end
   end)
 end
@@ -856,15 +862,15 @@ function handleDivisionClick(item)
 end
 
 function loadDivisionDetails(type, number)
-  -- Try offline data first
+  setMainViewState("loading")
+  -- Try offline first
   if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
     local dText = quranOfflineData.data[1]
-    local dTafsir1 = quranOfflineData.data[2]
-    local dTafsir2 = quranOfflineData.data[3]
+    local dT1 = quranOfflineData.data[2]
+    local dT2 = quranOfflineData.data[3]
 
     player.currentSurahData = {}
-    local typeName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع "))
-    player.currentSurahName = typeName .. number
+    player.currentSurahName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع ")) .. number
     player.currentSurahNumber = number
 
     for sIdx, surah in ipairs(dText.surahs) do
@@ -881,14 +887,15 @@ function loadDivisionDetails(type, number)
             audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
             numberInSurah = ayah.numberInSurah,
             surahName = surah.name,
-            tafsir = dTafsir1.surahs[sIdx].ayahs[aIdx].text,
-            tafsir2 = dTafsir2 and dTafsir2.surahs[sIdx].ayahs[aIdx].text
+            tafsir = dT1 and dT1.surahs[sIdx] and dT1.surahs[sIdx].ayahs[aIdx] and dT1.surahs[sIdx].ayahs[aIdx].text,
+            tafsir2 = dT2 and dT2.surahs[sIdx] and dT2.surahs[sIdx].ayahs[aIdx] and dT2.surahs[sIdx].ayahs[aIdx].text
           })
         end
       end
     end
 
     if #player.currentSurahData > 0 then
+      setMainViewState("content")
       lastIndex = mainFlipper.getDisplayedChild()
       mainFlipper.setDisplayedChild(2)
       setupPlayer(1)
@@ -896,39 +903,32 @@ function loadDivisionDetails(type, number)
     end
   end
 
-  local url = BaseURL .. "/" .. type .. "/" .. number .. "/editions/quran-simple,ar.muyassar," .. config.current_reciter
-  local pd = ProgressDialog.show(activity, "يرجى الانتظار", "جاري جلب الآيات والتفسير...", true)
+  local url = BaseURL .. "/" .. type .. "/" .. number .. "/" .. config.current_reciter
+  local pd = ProgressDialog.show(activity, "يرجى الانتظار", "جاري جلب البيانات...", true)
 
   httpGet(url, function(success, body)
     pd.dismiss()
     if not success then
-      Toast.makeText(activity, "خطأ في الشبكة", Toast.LENGTH_LONG).show()
+      Toast.makeText(activity, "خطأ في الاتصال", Toast.LENGTH_LONG).show()
       return
     end
 
     local decode_ok, json = pcall(cjson.decode, body)
-    if decode_ok and json.code == 200 and json.data and #json.data >= 3 then
-      local dText, dTafsir, dAudio
-      for _, ed in ipairs(json.data) do
-        if ed.edition.identifier == "quran-simple" then dText = ed
-        elseif ed.edition.identifier == "ar.muyassar" then dTafsir = ed
-        elseif ed.edition.type == "audio" then dAudio = ed
-        end
-      end
-      dText = dText or json.data[1]; dTafsir = dTafsir or json.data[2]; dAudio = dAudio or json.data[3]
-
+    if decode_ok and json.code == 200 and json.data then
+      local data = json.data
       player.currentSurahData = {}
       local typeName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع "))
       player.currentSurahName = typeName .. number
       player.currentSurahNumber = number
 
-      for i=1, #dText.ayahs do
+      local ayahs = data.ayahs
+      for i=1, #ayahs do
         table.insert(player.currentSurahData, {
-          text = dText.ayahs[i].text,
-          audio = dAudio.ayahs[i].audio,
-          numberInSurah = dText.ayahs[i].numberInSurah,
-          surahName = dText.ayahs[i].surah.name,
-          tafsir = dTafsir.ayahs[i].text
+          text = ayahs[i].text,
+          audio = ayahs[i].audio,
+          numberInSurah = ayahs[i].numberInSurah,
+          surahName = ayahs[i].surah.name,
+          tafsir = "التفسير متوفر في وضع الأوفلاين حالياً لهذه الأقسام."
         })
       end
 
@@ -938,7 +938,7 @@ function loadDivisionDetails(type, number)
         setupPlayer(1)
       end
     else
-      Toast.makeText(activity, "خطأ في تحميل البيانات", Toast.LENGTH_LONG).show()
+      Toast.makeText(activity, "خطأ في تحليل البيانات", Toast.LENGTH_LONG).show()
     end
   end)
 end
@@ -1629,8 +1629,8 @@ function loadSurahDetails(number, startAyah, endAyah)
             text = ayah.text,
             audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
             numberInSurah = ayah.numberInSurah,
-            tafsir = dTafsir1.ayahs[i].text,
-            tafsir2 = dTafsir2 and dTafsir2.ayahs[i].text
+            tafsir = dTafsir1 and dTafsir1.ayahs[i] and dTafsir1.ayahs[i].text,
+            tafsir2 = dTafsir2 and dTafsir2.ayahs[i] and dTafsir2.ayahs[i].text
           })
         end
       end
@@ -1956,6 +1956,11 @@ function showSettingsDialog()
     if reciterNameDisplay then reciterNameDisplay.text = "القارئ: " .. reciters[pos].name end
     saveAppData(); Toast.makeText(activity, "تم حفظ الإعدادات ✔", Toast.LENGTH_SHORT).show()
   end)
+  builder.setNeutralButton("حذف بيانات الأوفلاين", function()
+     os.remove(quranOfflinePath)
+     quranOfflineData = nil
+     Toast.makeText(activity, "تم حذف البيانات. يرجى إعادة تشغيل التطبيق.", Toast.LENGTH_LONG).show()
+  end)
   builder.setNegativeButton("إلغاء", nil)
   builder.show()
 end
@@ -2022,11 +2027,15 @@ function searchQuranOffline(query)
   -- Simple normalization for common Arabic letters
   local function normalize(t)
     if not t then return "" end
-    -- Remove Arabic diacritics (064B - 0652) and some others
-    -- In UTF-8 these are D9 8B (217 139) to D9 92 (217 146)
-    local res = t:gsub("[\217\139-\217\146]", "")
-    res = res:gsub("[\217\147-\217\152]", "") -- Extended diacritics
-    return res:gsub("[إأآا]", "ا"):gsub("ة", "ه"):gsub("[ىي]", "ي")
+    -- Remove diacritics and common marks
+    local res = t:gsub("[\217\139-\217\148]", "")
+    res = res:gsub("[\217\154-\217\159]", "")
+    res = res:gsub("[ًٌٍَُِّْ]", "")
+    -- Normalize letters
+    res = res:gsub("[أإآ]", "ا")
+    res = res:gsub("ة", "ه")
+    res = res:gsub("ى", "ي")
+    return res
   end
   local normQuery = normalize(query)
 
