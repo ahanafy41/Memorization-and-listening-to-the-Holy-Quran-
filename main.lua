@@ -2139,7 +2139,7 @@ function showTafsirDialog(ayah)
       { Spinner, id = "spnTafsir", layout_width = "wrap_content" }
     },
     { ScrollView, layout_width = "fill", layout_height = "320dp",
-      { TextView, id = "txtTafsir", text = ayah.tafsir or "التفسير غير متوفر.", textSize = "18sp", textColor = colors.text_title, lineSpacingMultiplier = 1.4 }
+      { TextView, id = "txtTafsir", text = ayah.tafsir or "التفسير غير متوفر.", textSize = "18sp", textColor = colors.text_title }
     },
     {
       LinearLayout, orientation = "horizontal", layout_width = "fill", layout_marginTop = "16dp",
@@ -2151,6 +2151,8 @@ function showTafsirDialog(ayah)
   local builder = AlertDialog.Builder(activity)
   local dlg = builder.show()
   dlg.setContentView(loadlayout(tafsirLayout, views))
+
+  if views.txtTafsir then pcall(function() views.txtTafsir.setLineSpacing(0, 1.4) end) end
 
   local tafsirBooks = {"التفسير الميسر", "تفسير الجلالين"}
   views.spnTafsir.setAdapter(ArrayAdapter(activity, android.R.layout.simple_spinner_dropdown_item, tafsirBooks))
