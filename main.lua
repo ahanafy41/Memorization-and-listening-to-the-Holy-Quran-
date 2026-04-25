@@ -198,12 +198,10 @@ function loadAppData()
   if offlineFile then
     local content = offlineFile:read("*a")
     offlineFile:close()
-    if #content > 1000 then -- Simple size check
+    if #content > 1000 then
       local success, data = pcall(cjson.decode, content)
-      if success and data and data.data and #data.data >= 2 then
+      if success and data and data.text and data.muyassar then
         quranOfflineData = data
-      else
-        Toast.makeText(activity, "بيانات الأوفلاين تالفة، يرجى إعادة التحميل", Toast.LENGTH_LONG).show()
       end
     end
   end
@@ -214,49 +212,56 @@ loadAppData()
 function downloadQuranOffline(callback)
   local pd = ProgressDialog(activity)
   pd.setTitle("تحميل البيانات للأوفلاين")
-  pd.setMessage("جاري تحميل المصحف والتفسير (مرة واحدة فقط)...")
+  pd.setMessage("جاري تحميل المصحف والتفسير...")
   pd.setCancelable(false)
   pd.show()
 
-  -- Use a safer way to handle large bodies
-  -- We'll download text, Muyassar, and Jalalayn (3 editions)
-  local url = "https://api.alquran.cloud/v1/quran/quran-simple,ar.muyassar,ar.jalalayn"
-  Http.get(url, function(code, body)
-    if code == 200 and body then
-      local decode_ok, json = pcall(cjson.decode, body)
-      if decode_ok and json.code == 200 and json.data and #json.data >= 3 then
-        local success_save, err = pcall(function()
-          local file = io.open(quranOfflinePath, "w")
-          if file then
-            file:write(body)
-            file:close()
-            return true
-          end
-          error("Could not open file for writing")
-        end)
-
-        if success_save then
-          quranOfflineData = json
+  local results = {}
+  local function checkComplete()
+    if results.text and results.muyassar and results.jalalayn then
+      local data = { text = results.text, muyassar = results.muyassar, jalalayn = results.jalalayn }
+      local success_json, jsonStr = pcall(cjson.encode, data)
+      if success_json then
+        local file = io.open(quranOfflinePath, "w")
+        if file then
+          file:write(jsonStr)
+          file:close()
+          quranOfflineData = data
           pd.dismiss()
           if callback then callback(true) end
           Toast.makeText(activity, "تم تحميل البيانات بنجاح ✔", Toast.LENGTH_SHORT).show()
         else
           pd.dismiss()
-          if callback then callback(false) end
-          Toast.makeText(activity, "فشل حفظ الملف: " .. tostring(err), Toast.LENGTH_LONG).show()
+          Toast.makeText(activity, "فشل حفظ الملف محلياً", Toast.LENGTH_LONG).show()
         end
       else
         pd.dismiss()
-        if callback then callback(false) end
-        local errMsg = not decode_ok and "خطأ في معالجة JSON" or "كود الاستجابة: " .. (json.code or "unknown")
-        Toast.makeText(activity, "فشل تحليل البيانات: " .. errMsg, Toast.LENGTH_LONG).show()
+        Toast.makeText(activity, "خطأ في تشفير البيانات", Toast.LENGTH_LONG).show()
       end
-    else
-      pd.dismiss()
-      if callback then callback(false) end
-      Toast.makeText(activity, "فشل التحميل. كود الخطأ: " .. tostring(code), Toast.LENGTH_LONG).show()
     end
-  end)
+  end
+
+  local function fetch(edition, key)
+    httpGet("https://api.alquran.cloud/v1/quran/" .. edition, function(success, body)
+      if success then
+        local ok, json = pcall(cjson.decode, body)
+        if ok and json.code == 200 then
+          results[key] = json.data
+          checkComplete()
+        else
+          pd.dismiss()
+          Toast.makeText(activity, "خطأ في معالجة نسخة " .. edition, Toast.LENGTH_LONG).show()
+        end
+      else
+        pd.dismiss()
+        Toast.makeText(activity, "فشل تحميل نسخة " .. edition, Toast.LENGTH_LONG).show()
+      end
+    end)
+  end
+
+  fetch("quran-simple", "text")
+  fetch("ar.muyassar", "muyassar")
+  fetch("ar.jalalayn", "jalalayn")
 end
 
 -- ==========================================
@@ -761,8 +766,8 @@ end
 
 function loadSurahs()
   -- Attempt to load from offline data first
-  if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
-    local surahs = quranOfflineData.data[1].surahs
+  if quranOfflineData and quranOfflineData.text then
+    local surahs = quranOfflineData.text.surahs
     currentSurahsList = {}
     for i, s in ipairs(surahs) do
       table.insert(currentSurahsList, {
@@ -864,10 +869,10 @@ end
 function loadDivisionDetails(type, number)
   setMainViewState("loading")
   -- Try offline first
-  if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
-    local dText = quranOfflineData.data[1]
-    local dT1 = quranOfflineData.data[2]
-    local dT2 = quranOfflineData.data[3]
+  if quranOfflineData and quranOfflineData.text then
+    local dText = quranOfflineData.text
+    local dT1 = quranOfflineData.muyassar
+    local dT2 = quranOfflineData.jalalayn
 
     player.currentSurahData = {}
     player.currentSurahName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع ")) .. number
@@ -978,7 +983,7 @@ function showQuranList(type)
 end
 
 function loadJuzs()
-  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
+  if not (quranOfflineData and quranOfflineData.text) then setMainViewState("loading") end
   local juzs = {}
   for i=1, 30 do
     table.insert(juzs, {
@@ -994,7 +999,7 @@ function loadJuzs()
 end
 
 function loadRubs()
-  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
+  if not (quranOfflineData and quranOfflineData.text) then setMainViewState("loading") end
   local rubs = {}
   for i=1, 240 do
     table.insert(rubs, {
@@ -1010,13 +1015,13 @@ function loadRubs()
 end
 
 function loadPages()
-  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
+  if not (quranOfflineData and quranOfflineData.text) then setMainViewState("loading") end
   local pages = {}
   -- In offline data, we can find which surah is in which page easily
   for i=1, 604 do
     local sub = "تصفح الصفحة رقم " .. i
-    if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
-       for sIdx, surah in ipairs(quranOfflineData.data[1].surahs) do
+    if quranOfflineData and quranOfflineData.text then
+       for sIdx, surah in ipairs(quranOfflineData.text.surahs) do
          if surah.ayahs[1].page == i then sub = "بداية سورة " .. surah.name; break end
        end
     end
@@ -1033,7 +1038,7 @@ function loadPages()
 end
 
 function loadHizbs()
-  if not (quranOfflineData and quranOfflineData.data) then setMainViewState("loading") end
+  if not (quranOfflineData and quranOfflineData.text) then setMainViewState("loading") end
   local hizbs = {}
   for i=1, 60 do
     table.insert(hizbs, {
@@ -1614,10 +1619,10 @@ end
 -- =========================================
 function loadSurahDetails(number, startAyah, endAyah)
   -- Try offline data first
-  if quranOfflineData and quranOfflineData.data and quranOfflineData.data[1] then
-    local dText = quranOfflineData.data[1].surahs[number]
-    local dTafsir1 = quranOfflineData.data[2].surahs[number]
-    local dTafsir2 = quranOfflineData.data[3] and quranOfflineData.data[3].surahs[number]
+  if quranOfflineData and quranOfflineData.text then
+    local dText = quranOfflineData.text.surahs[number]
+    local dT1 = quranOfflineData.muyassar.surahs[number]
+    local dT2 = quranOfflineData.jalalayn.surahs[number]
 
     if dText then
       player.currentSurahData = {}
@@ -1629,8 +1634,8 @@ function loadSurahDetails(number, startAyah, endAyah)
             text = ayah.text,
             audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
             numberInSurah = ayah.numberInSurah,
-            tafsir = dTafsir1 and dTafsir1.ayahs[i] and dTafsir1.ayahs[i].text,
-            tafsir2 = dTafsir2 and dTafsir2.ayahs[i] and dTafsir2.ayahs[i].text
+            tafsir = dT1 and dT1.ayahs[i] and dT1.ayahs[i].text,
+            tafsir2 = dT2 and dT2.ayahs[i] and dT2.ayahs[i].text
           })
         end
       end
@@ -2016,13 +2021,13 @@ end
 -- ==========================================
 
 function searchQuranOffline(query)
-  if not quranOfflineData then return end
+  if not quranOfflineData or not quranOfflineData.text then return end
 
   local results = {}
   local listData = {}
-  local dText = quranOfflineData.data[1]
-  local dTafsir1 = quranOfflineData.data[2]
-  local dTafsir2 = quranOfflineData.data[3]
+  local dText = quranOfflineData.text
+  local dT1 = quranOfflineData.muyassar
+  local dT2 = quranOfflineData.jalalayn
 
   -- Simple normalization for common Arabic letters
   local function normalize(t)
@@ -2053,8 +2058,8 @@ function searchQuranOffline(query)
           numberInSurah = ayah.numberInSurah,
           surahName = surah.name,
           surahNumber = sIdx,
-          tafsir = dTafsir1.surahs[sIdx].ayahs[aIdx].text,
-          tafsir2 = dTafsir2 and dTafsir2.surahs[sIdx].ayahs[aIdx].text
+          tafsir = dT1.surahs[sIdx].ayahs[aIdx].text,
+          tafsir2 = dT2 and dT2.surahs[sIdx].ayahs[aIdx].text
         })
         table.insert(listData, {
           tv_title = surah.name .. " - آية " .. ayah.numberInSurah,
