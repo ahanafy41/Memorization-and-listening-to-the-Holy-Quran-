@@ -134,7 +134,22 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.4" -- إصلاح البحث وتشغيل الصوت وتحديث الروابط
+local currentAppVersion = "1.0.4" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
+local function arabic_normalize(t)
+  if not t then return "" end
+  local res = tostring(t)
+  -- Remove Arabic diacritics (UTF-8 bytes)
+  res = res:gsub("\217[\139\140\141\142\143\144\145\146\147\148\154\155\156\157\158\159]", "")
+  res = res:gsub("\216[\140\141\142\143]", "")
+  -- Normalize Alef variations to bare Alef
+  res = res:gsub("\216[\162\163\165]", "\216\167")
+  -- Normalize Ta Marbuta to Ha
+  res = res:gsub("\216\169", "\217\135")
+  -- Normalize Alef Maksura to Ya
+  res = res:gsub("\217\137", "\217\138")
+  return res
+end
+
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
@@ -881,15 +896,15 @@ function updateList(filter)
   local dataSource = (currentViewType == "surahs" or currentViewType == "quran_reading" or currentViewType == "memorization") and currentSurahsList or allSurahsData
 
   if currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" then
-    dataSource = allSurahsData
-  end
-
   local normF = arabic_normalize(f)
   for i = 1, #dataSource do
     local s = dataSource[i]
     local normTitle = arabic_normalize(s.title)
     if f == "" or string.find(normTitle, normF, 1, true) or (s.number and string.find(tostring(s.number), f, 1, true)) then
       table.insert(filteredSurahs, s)
+      table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
+    end
+  end
       table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
     end
   end
@@ -1687,8 +1702,8 @@ function loadSurahDetails(number, startAyah, endAyah)
       player.currentSurahNumber = number
       for i, ayah in ipairs(dText.ayahs) do
         if ayah.numberInSurah >= startAyah and ayah.numberInSurah <= endAyah then
-          -- Construct Audio URL correctly for offline-text mode with fallback
-          local aNum = ayah.number or ((number - 1) * 100 + ayah.numberInSurah) -- Better heuristic than just numberInSurah, but still not perfect without mapping
+          -- Construct Audio URL correctly for offline-text mode
+          local aNum = ayah.number or ((number - 1) * 100 + ayah.numberInSurah) -- Better heuristic than just numberInSurah
           local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. aNum .. ".mp3"
 
           table.insert(player.currentSurahData, {
@@ -1811,11 +1826,12 @@ function setupPlayer(index)
     -- Smooth scroll to current ayah if applicable
     if index > 1 then continuousListView.setSelection(index - 1) end
 
+    -- In continuous mode, if player is already active, keep it going for the next ayah
+    if player.isPlaying then
     -- Prepare media in continuous mode so "Play" button works immediately
     if player.isPlaying or not player.currentAudioUrl then
        setupMediaPlayer(ayah.audio, player.isPlaying)
     end
-  else
     ayahCard.setVisibility(View.VISIBLE)
     continuousListView.setVisibility(View.GONE)
     progressContainer.setVisibility(View.VISIBLE)
@@ -1916,7 +1932,7 @@ function setupMediaPlayer(url, autoStart)
 
   player.media.setOnErrorListener{ onError = function(mp, what, extra)
     activity.runOnUiThread(Runnable{run=function()
-      Toast.makeText(activity, "خطأ في الصوت (تأكد من الإنترنت): " .. what, Toast.LENGTH_SHORT).show()
+      Toast.makeText(activity, "خطأ في الصوت: " .. what, Toast.LENGTH_SHORT).show()
       statusText.text = "خطأ في التشغيل"
       updatePlayButton(false)
     end})
@@ -1957,6 +1973,11 @@ function setupMediaPlayer(url, autoStart)
     player.isPlaying = false
     updatePlayButton(false)
   end
+end
+  end}
+
+  player.media.setOnPreparedListener{ onPrepared = function(mp) if player.isPlaying then mp.start(); updatePlayButton(true) end end }
+  player.media.setOnCompletionListener{ onCompletion = function(mp) onAyahComplete() end }
 end
 
 function onAyahComplete()
@@ -2006,6 +2027,7 @@ function togglePlay()
     announceAccess("تم استئناف التشغيل")
   end
 end
+end
 
 function updatePlayButton(isPlaying)
   if isPlaying then btnPlay.text = "⏸"; btnPlay.setContentDescription("إيقاف مؤقت")
@@ -2020,6 +2042,7 @@ end
 function playPrev()
   if player.currentAyahIndex > 1 then setupPlayer(player.currentAyahIndex - 1); player.isPlaying = true end
 end
+
 function stopAudio()
   pcall(function()
     if player.media.isPlaying() then player.media.stop() end
@@ -2121,38 +2144,6 @@ function onKeyDown(keyCode, event)
       announceAccess("العودة للقائمة الرئيسية")
       return true
     end
-  end
-  return false
-end
-
-function onDestroy() 
-  saveAppData()
-  if player.media then pcall(function() player.media.release() end) end 
-end
-
-function onPause()
-  saveAppData()
-end
-
--- ==========================================
--- 🚀 13. START APPLICATION
--- ==========================================
-
-local function arabic_normalize(t)
-  if not t then return "" end
-  local res = tostring(t)
-  -- Remove Arabic diacritics (UTF-8 bytes)
-  res = res:gsub("\217[\139\140\141\142\143\144\145\146\147\148\154\155\156\157\158\159]", "")
-  res = res:gsub("\216[\140\141\142\143]", "")
-  -- Normalize Alef variations to bare Alef
-  res = res:gsub("\216[\162\163\165]", "\216\167")
-  -- Normalize Ta Marbuta to Ha
-  res = res:gsub("\216\169", "\217\135")
-  -- Normalize Alef Maksura to Ya
-  res = res:gsub("\217\137", "\217\138")
-  return res
-end
-
 function searchQuranOffline(query)
   if not quranOfflineData or not quranOfflineData.text then return end
 
@@ -2222,6 +2213,61 @@ function searchQuranOffline(query)
       local res = results[position + 1]
       if not res or res.isSurah then return false end
       player.currentSurahData = {res}
+      player.currentSurahName = res.surahName
+      player.currentSurahNumber = res.surahNumber
+      showAyahOptions(1)
+      return true
+    end
+  })
+end
+    for aIdx, ayah in ipairs(surah.ayahs) do
+      local match = false
+      if string.find(ayah.text, query, 1, true) or string.find(normalize(ayah.text), normQuery, 1, true) then
+        match = true
+      end
+
+      if match then
+        table.insert(results, {
+          text = ayah.text,
+          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. (ayah.number or (sIdx.."_"..aIdx)) .. ".mp3",
+          numberInSurah = ayah.numberInSurah,
+          surahName = surah.name,
+          surahNumber = sIdx,
+          tafsir = dT1.surahs[sIdx].ayahs[aIdx].text,
+          tafsir2 = dT2 and dT2.surahs[sIdx].ayahs[aIdx].text
+        })
+        table.insert(listData, {
+          tv_title = surah.name .. " - آية " .. ayah.numberInSurah,
+          tv_subtitle = string.sub(ayah.text, 1, 100) .. "..."
+        })
+      end
+      if #results >= 50 then break end
+    end
+    if #results >= 50 then break end
+  end
+
+  local adapter = LuaAdapter(activity, listData, getStandardListItem())
+  surahList.setAdapter(adapter)
+
+  surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
+    onItemClick = function(parent, view, position, id)
+      local res = results[position + 1]
+      player.currentSurahData = {res}
+      player.currentSurahName = res.surahName
+      player.currentSurahNumber = res.surahNumber
+      lastIndex = 1
+      mainFlipper.setDisplayedChild(2)
+      setupPlayer(1)
+
+      -- If user was searching from Quran section, we might want to stay in Quran context
+      -- But for now, single verse view is safer for search results.
+    end
+  })
+
+  surahList.setOnItemLongClickListener(AdapterView.OnItemLongClickListener{
+    onItemLongClick = function(parent, view, position, id)
+      local res = results[position + 1]
+      player.currentSurahData = {res} -- Set context
       player.currentSurahName = res.surahName
       player.currentSurahNumber = res.surahNumber
       showAyahOptions(1)
@@ -2426,6 +2472,7 @@ function startApp()
          return
       end
 
+      -- Debounce search for performance
       -- Debounce search for performance using Handler to avoid NPE
       if not searchHandler then searchHandler = Handler() end
       if searchRunnable then searchHandler.removeCallbacks(searchRunnable) end
@@ -2439,7 +2486,7 @@ function startApp()
         elseif currentViewType == "listening_surahs" then
           if updateReciterSurahsList then updateReciterSurahsList(txt) end
         elseif #txt > 1 then
-          updateList(txt) -- Search in current list (Surahs/Categories)
+          updateList(txt) -- Search in current list
           if quranOfflineData and #txt > 2 then
              searchQuranOffline(txt) -- Deep search in verses
           end
