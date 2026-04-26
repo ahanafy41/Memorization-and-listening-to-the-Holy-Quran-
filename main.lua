@@ -132,6 +132,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
+local currentAppVersion = "1.0.1" -- نسخة التطبيق الحالية (للشركة)
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
@@ -2221,9 +2222,30 @@ function addAyahToBookmarks(ayah)
   Toast.makeText(activity, "تم الحفظ في الإشارات المرجعية ✔", Toast.LENGTH_SHORT).show()
 end
 
+function checkAppUpdates()
+  local githubVersionUrl = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/The-new-Quran-update/version.txt"
+  httpGet(githubVersionUrl, function(success, body)
+    if success then
+      local latestVersion = body:gsub("%s+", "")
+      if latestVersion ~= currentAppVersion then
+        local builder = AlertDialog.Builder(activity)
+        builder.setTitle("تحديث جديد متوفر 🚀")
+        builder.setMessage("يتوفر إصدار جديد من التطبيق (" .. latestVersion .. "). هل ترغب في الانتقال لصفحة التحميل؟")
+        builder.setPositiveButton("تحديث الآن", function()
+          local intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ahanafy41/The-Holy-Quran"))
+          activity.startActivity(intent)
+        end)
+        builder.setNegativeButton("لاحقاً", nil)
+        builder.show()
+      end
+    end
+  end)
+end
+
 function startApp()
   applyTheme()
   setRandomQuote()
+  checkAppUpdates()
   if showResumeCard then showResumeCard() end
 
   if searchEdt then
