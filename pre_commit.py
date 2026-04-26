@@ -1,30 +1,27 @@
 import sys
 import subprocess
+import os
 
-def check_syntax(file_path):
-    print(f"🔍 فحص الصيغة البرمجية لـ {file_path}...")
+def run_tests():
+    print("🔄 جاري تشغيل كافة فحوصات الجودة قبل الإيداع...")
     try:
-        # استخدام luac لفحص الصيغة دون تنفيذ
-        result = subprocess.run(['luac', '-p', file_path], capture_output=True, text=True)
+        # تشغيل أداة الفحص الجديدة
+        result = subprocess.run(['python3', 'check_code.py'], capture_output=True, text=True)
+
+        # طباعة التقرير العربي للمستخدم في كل الأحوال
+        print(result.stdout)
+
         if result.returncode == 0:
-            print(f"✅ {file_path} سليمة برمجياً.")
+            print("🚀 جميع الفحوصات تمت بنجاح! الكود جاهز للإيداع.")
             return True
         else:
-            print(f"❌ خطأ في الصيغة في {file_path}:")
-            print(result.stderr)
+            print("❌ فشلت بعض الفحوصات الأساسية. يرجى مراجعة التقرير أعلاه وإصلاح الأخطاء.")
             return False
+
     except FileNotFoundError:
-        # إذا لم يكن luac متاحاً، نكتفي بالتأكد من وجود الملف
-        print("⚠️ محرر luac غير متاح، يتم الفحص المنطقي البسيط...")
-        return True
+        print("❌ خطأ: لم يتم العثور على أداة check_code.py")
+        return False
 
 if __name__ == "__main__":
-    files_to_check = ['main.lua']
-    all_passed = True
-    for f in files_to_check:
-        if not check_syntax(f):
-            all_passed = False
-
-    if not all_passed:
+    if not run_tests():
         sys.exit(1)
-    print("🚀 جميع الفحوصات تمت بنجاح!")

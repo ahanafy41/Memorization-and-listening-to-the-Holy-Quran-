@@ -144,14 +144,20 @@ This project implements a Strict Syntax & Logic Verification system to ensure ze
 ### 1. Environment Setup
 Run `bash init_env.sh` to build the Lua 5.4 compiler and interpreter in `.bin/`.
 
-### 2. Mandatory Syntax Check
-Before committing any changes to `main.lua`, you MUST run:
+### 2. Mandatory Unified Check (Syntax, Quality, Logic)
+Before committing any changes, you MUST run:
 `python3 pre_commit.py`
-If this fails, DO NOT SUBMIT. Fix the syntax errors reported by `luac`.
+This tool runs `check_code.py` which performs:
+- **Syntax Check**: Uses `luac -p` to ensure the code compiles.
+- **Linting**: Uses `luacheck` to verify code quality and variables.
+- **Unit Testing**: Runs `test.lua` to verify logic.
+If this fails, DO NOT SUBMIT. Review the Arabic report generated in the chat.
 
-### 3. Logic Unit Testing
-To verify helper functions and non-UI logic:
-`./.bin/lua test.lua`
+### 3. Manual Testing
+To run individual tests or linting:
+- Detailed Report: `python3 check_code.py`
+- Logic only: `lua test.lua`
+- Quality only: `~/.luarocks/bin/luacheck main.lua`
 
 ### 4. Real-World "System Health Check" (In-App)
 The app includes a "System Health Check" feature. Ensure any changes to connectivity or AI logic are reflected there.
