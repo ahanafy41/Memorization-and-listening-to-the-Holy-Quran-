@@ -905,9 +905,6 @@ function updateList(filter)
       table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
     end
   end
-      table.insert(listData, { tv_title = s.title, tv_subtitle = s.subtitle })
-    end
-  end
 
   local adapter = LuaAdapter(activity, listData, itemLayout)
   surahList.setAdapter(adapter)
