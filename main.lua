@@ -132,7 +132,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.1" -- نسخة التطبيق الحالية (للشركة)
+local currentAppVersion = "1.0.2" -- تم التحديث للفحص الشامل
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
@@ -392,6 +392,7 @@ layout = {
   {
     LinearLayout, layout_width = "fill", padding = "16dp", id = "toolbarLayout", gravity = "center_vertical", elevation = "4dp",
     { TextView, text = "تطبيق القرآن الكريم", textSize = "24sp", style = "bold", layout_weight = 1, id = "toolbar_title" },
+    { ImageView, id = "btn_search", src = "@android:drawable/ic_menu_search", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", layout_marginRight = "12dp", onClick = function() toggleSearch() end },
     { ImageView, src = "@android:drawable/ic_menu_day", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_theme", layout_marginRight = "12dp", onClick = function() toggleDarkMode() end },
     { ImageView, src = "@android:drawable/ic_input_get", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_bookmarks", layout_marginRight = "12dp", onClick = function() showBookmarksDialog() end },
     { ImageView, src = "@android:drawable/ic_menu_manage", layout_width = "32dp", layout_height = "32dp", colorFilter = "#FFFFFF", id = "btn_settings", onClick = function() showSettingsDialog() end }
@@ -417,17 +418,13 @@ layout = {
           { TextView, id = "quoteText", text = "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ", textSize = "16sp" }
         },
 
-        -- شبكة الكروت (Cards Grid)
+        -- شبكة الكروت (Cards Grid) - تم تنظيفها ودمجها
         { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "150dp",
-          MenuCard("btnGoQuran", "imgQuran", "txtQuran", "@android:drawable/ic_menu_book", "المصحف"),
-          MenuCard("btnGoMemorize", "imgMemorize", "txtMemorize", "@android:drawable/ic_btn_speak_now", "المحفظ")
+          MenuCard("btnGoQuranMain", "imgQuranMain", "txtQuranMain", "@android:drawable/ic_menu_book", "القرآن الكريم"),
+          MenuCard("btnGoAzkar", "imgAzkar", "txtAzkar", "@android:drawable/btn_star_big_on", "الأذكار")
         },
         { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "150dp",
-          MenuCard("btnGoAzkar", "imgAzkar", "txtAzkar", "@android:drawable/btn_star_big_on", "الأذكار"),
-          MenuCard("btnGoRadio", "imgRadio", "txtRadio", "@android:drawable/ic_lock_silent_mode_off", "الراديو")
-        },
-        { LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "150dp",
-          MenuCard("btnGoListening", "imgListening", "txtListening", "@android:drawable/ic_lock_silent_mode", "الاستماع"),
+          MenuCard("btnGoRadio", "imgRadio", "txtRadio", "@android:drawable/ic_lock_silent_mode_off", "الراديو"),
           { View, layout_width = "0", layout_height = "fill", layout_weight = 1, layout_margin = "8dp" }
         },
 
@@ -465,7 +462,6 @@ layout = {
       {
         LinearLayout, orientation = "horizontal", layout_width = "fill", gravity = "center_vertical", layout_marginBottom = "8dp",
         { TextView, id = "playerTitle", text = "...", textSize = "24sp", style = "bold", layout_weight = 1, gravity = "center" },
-        { Button, id = "btnQuickTafsir", text = "التفسير", layout_width = "wrap_content", layout_height = "36dp", layout_marginRight = "8dp", paddingLeft = "12dp", paddingRight = "12dp", onClick = function() if player.currentSurahData then showTafsirDialog(player.currentSurahData[player.currentAyahIndex]) end end },
         { ImageView, src = "@android:drawable/ic_menu_more", layout_width = "36dp", layout_height = "36dp", id = "btnMoreOptions", onClick = function() showAyahOptions(player.currentAyahIndex) end }
       },
       { TextView, id = "reciterNameDisplay", text = "...", textSize = "16sp", gravity = "center", layout_marginBottom = "16dp" },
@@ -496,7 +492,24 @@ layout = {
       IndexButton("btnIndexJuz", "الأجزاء", function() showQuranList("juzs") end),
       IndexButton("btnIndexPage", "الصفحات", function() showQuranList("pages") end),
       IndexButton("btnIndexRub", "أرباع الأحزاب", function() showQuranList("rubs") end),
-      { Button, text = "عودة", id = "btnBackFromIndex", layout_marginTop = "20dp", onClick = function() mainFlipper.setDisplayedChild(0) end },
+      { Button, text = "عودة", id = "btnBackFromIndex", layout_marginTop = "20dp", onClick = function() mainFlipper.setDisplayedChild(4) end },
+    },
+
+    -- PAGE 4: QURAN HUB (المركز الجديد للقرآن)
+    {
+      LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "24dp", gravity = "center", id = "quranHubPage",
+      { TextView, text = "القرآن الكريم", textSize = "28sp", style = "bold", layout_marginBottom = "32dp", id = "quranHubTitle" },
+      {
+        LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "160dp",
+        MenuCard("btnHubRead", "imgHubRead", "txtHubRead", "@android:drawable/ic_menu_book", "قراءة وتصفح"),
+        MenuCard("btnHubListen", "imgHubListen", "txtHubListen", "@android:drawable/ic_lock_silent_mode", "استماع للقراء")
+      },
+      {
+        LinearLayout, orientation = "horizontal", layout_width = "fill", layout_height = "160dp",
+        MenuCard("btnHubMemorize", "imgHubMemorize", "txtHubMemorize", "@android:drawable/ic_btn_speak_now", "المحفظ المعلم"),
+        { View, layout_width = "0", layout_height = "fill", layout_weight = 1, layout_margin = "8dp" }
+      },
+      { Button, text = "عودة للقائمة الرئيسية", id = "btnBackFromHub", layout_marginTop = "24dp", onClick = function() mainFlipper.setDisplayedChild(0) end },
     }
   }
 }
@@ -527,41 +540,52 @@ function applyTheme()
 
   -- تلوين دوائر الأيقونات داخل الكروت (لون شفاف خفيف من الـ Primary)
   local softIconBgColor = currentThemeMode == "dark" and "#2680CBC4" or "#2600695C" -- لون شبه شفاف
-  if btnGoQuran_icon_bg then setCircleDesign(btnGoQuran_icon_bg, softIconBgColor) end
-  if btnGoMemorize_icon_bg then setCircleDesign(btnGoMemorize_icon_bg, softIconBgColor) end
+  if btnGoQuranMain_icon_bg then setCircleDesign(btnGoQuranMain_icon_bg, softIconBgColor) end
   if btnGoAzkar_icon_bg then setCircleDesign(btnGoAzkar_icon_bg, softIconBgColor) end
   if btnGoRadio_icon_bg then setCircleDesign(btnGoRadio_icon_bg, softIconBgColor) end
-  if btnGoListening_icon_bg then setCircleDesign(btnGoListening_icon_bg, softIconBgColor) end
+
+  if btnHubRead_icon_bg then setCircleDesign(btnHubRead_icon_bg, softIconBgColor) end
+  if btnHubListen_icon_bg then setCircleDesign(btnHubListen_icon_bg, softIconBgColor) end
+  if btnHubMemorize_icon_bg then setCircleDesign(btnHubMemorize_icon_bg, softIconBgColor) end
 
   local strokeColor = colors.primary .. "4D" -- 30% opacity of primary color
-  setDesign(btnGoQuran, colors.card_bg, dimens.radius, 3, strokeColor)
-  setDesign(btnGoMemorize, colors.card_bg, dimens.radius, 3, strokeColor)
+  setDesign(btnGoQuranMain, colors.card_bg, dimens.radius, 3, strokeColor)
   setDesign(btnGoAzkar, colors.card_bg, dimens.radius, 3, strokeColor)
   setDesign(btnGoRadio, colors.card_bg, dimens.radius, 3, strokeColor)
 
-  if txtQuran then txtQuran.setTextColor(Color.parseColor(colors.text_title)) end
-  if txtMemorize then txtMemorize.setTextColor(Color.parseColor(colors.text_title)) end
+  setDesign(btnHubRead, colors.card_bg, dimens.radius, 3, strokeColor)
+  setDesign(btnHubListen, colors.card_bg, dimens.radius, 3, strokeColor)
+  setDesign(btnHubMemorize, colors.card_bg, dimens.radius, 3, strokeColor)
+  if btnBackFromHub then btnBackFromHub.setBackgroundColor(0); btnBackFromHub.setTextColor(Color.parseColor(colors.text_body)) end
+  if quranHubTitle then quranHubTitle.setTextColor(Color.parseColor(colors.text_title)) end
+
+  if txtQuranMain then txtQuranMain.setTextColor(Color.parseColor(colors.text_title)) end
   if txtAzkar then txtAzkar.setTextColor(Color.parseColor(colors.text_title)) end
   if txtRadio then txtRadio.setTextColor(Color.parseColor(colors.text_title)) end
-  if txtListening then txtListening.setTextColor(Color.parseColor(colors.text_title)) end
 
-  if imgQuran then imgQuran.setColorFilter(Color.parseColor(colors.primary)) end
-  if imgMemorize then imgMemorize.setColorFilter(Color.parseColor(colors.primary)) end
+  if txtHubRead then txtHubRead.setTextColor(Color.parseColor(colors.text_title)) end
+  if txtHubListen then txtHubListen.setTextColor(Color.parseColor(colors.text_title)) end
+  if txtHubMemorize then txtHubMemorize.setTextColor(Color.parseColor(colors.text_title)) end
+
+  if imgQuranMain then imgQuranMain.setColorFilter(Color.parseColor(colors.primary)) end
   if imgAzkar then imgAzkar.setColorFilter(Color.parseColor(colors.primary)) end
   if imgRadio then imgRadio.setColorFilter(Color.parseColor(colors.primary)) end
-  if imgListening then imgListening.setColorFilter(Color.parseColor(colors.primary)) end
 
-  setDesign(btnGoListening, colors.card_bg, dimens.radius, 3, strokeColor)
+  if imgHubRead then imgHubRead.setColorFilter(Color.parseColor(colors.primary)) end
+  if imgHubListen then imgHubListen.setColorFilter(Color.parseColor(colors.primary)) end
+  if imgHubMemorize then imgHubMemorize.setColorFilter(Color.parseColor(colors.primary)) end
 
   local function addLongClick(v, t)
     if not v then return end
     v.onLongClick = function() announceAccess(t); return true end
   end
-  addLongClick(btnGoQuran, "قسم تصفح وقراءة القرآن الكريم")
-  addLongClick(btnGoMemorize, "قسم المحفظ لتعليم وحفظ القرآن")
+  addLongClick(btnGoQuranMain, "قسم القرآن الكريم: تصفح، استماع، وتحفيظ")
   addLongClick(btnGoAzkar, "قسم الأذكار وحصن المسلم")
   addLongClick(btnGoRadio, "قسم إذاعات القرآن الكريم المباشرة")
-  addLongClick(btnGoListening, "قسم الاستماع للقرآن الكريم كاملاً بأصوات مئات القراء")
+
+  addLongClick(btnHubRead, "تصفح وقراءة القرآن الكريم")
+  addLongClick(btnHubListen, "الاستماع للقرآن الكريم كاملاً")
+  addLongClick(btnHubMemorize, "المحفظ لتعليم وحفظ القرآن")
 
   if btnBackFromIndex then addLongClick(btnBackFromIndex, "العودة للقائمة السابقة") end
   if btnBack then addLongClick(btnBack, "العودة لقائمة السور أو الأقسام") end
@@ -601,11 +625,6 @@ function applyTheme()
   btnPlay.setTextColor(Color.parseColor(colors.text_title))
   if btnBack then btnBack.setBackgroundColor(0); btnBack.setTextColor(Color.parseColor(colors.text_body)) end
   if btnMoreOptions then btnMoreOptions.setColorFilter(Color.parseColor(colors.primary)) end
-  if btnQuickTafsir then
-    setDesign(btnQuickTafsir, colors.card_bg, 18, 2, colors.primary)
-    btnQuickTafsir.setTextColor(Color.parseColor(colors.primary))
-    btnQuickTafsir.setTextSize(12)
-  end
   
   if continuousListView then continuousListView.setBackgroundColor(Color.parseColor(colors.card_bg)) end
 
@@ -639,6 +658,21 @@ function toggleDarkMode()
   saveAppData()
   local msg = currentThemeMode == "dark" and "تم تفعيل الوضع الداكن" or "تم تفعيل الوضع الفاتح"
   Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show()
+end
+
+function toggleSearch()
+  if mainFlipper.getDisplayedChild() ~= 1 then
+    lastIndex = mainFlipper.getDisplayedChild()
+    mainFlipper.setDisplayedChild(1)
+    if listTitle then listTitle.text = "البحث السريع" end
+    if searchEdt then
+      searchEdt.requestFocus()
+      local imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE)
+      imm.showSoftInput(searchEdt, InputMethodManager.SHOW_IMPLICIT)
+    end
+  else
+    mainFlipper.setDisplayedChild(lastIndex or 0)
+  end
 end
 
 -- ==========================================
@@ -1646,9 +1680,12 @@ function loadSurahDetails(number, startAyah, endAyah)
       player.currentSurahNumber = number
       for i, ayah in ipairs(dText.ayahs) do
         if ayah.numberInSurah >= startAyah and ayah.numberInSurah <= endAyah then
+          -- Construct Audio URL correctly for offline-text mode
+          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3"
+
           table.insert(player.currentSurahData, {
             text = ayah.text,
-            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
+            audio = audioUrl,
             numberInSurah = ayah.numberInSurah,
             tafsir = dT1 and dT1.ayahs[i] and dT1.ayahs[i].text,
             tafsir2 = dT2 and dT2.ayahs[i] and dT2.ayahs[i].text
@@ -1847,12 +1884,18 @@ function playAyahInContinuous(index)
 end
 
 function setupMediaPlayer(url)
-  if url and string.match(url, "^http") then
-     local cm = activity.getSystemService(Context.CONNECTIVITY_SERVICE)
-     local info = cm.getActiveNetworkInfo()
-     if not (info and info.isConnected()) then
-        Toast.makeText(activity, "التشغيل الصوتي يتطلب إنترنت 🌐", Toast.LENGTH_SHORT).show()
-     end
+  if not url or url == "" then
+    Toast.makeText(activity, "رابط الصوت غير متوفر", Toast.LENGTH_SHORT).show()
+    return
+  end
+
+  -- Check connectivity but don't block (some might be cached)
+  local cm = activity.getSystemService(Context.CONNECTIVITY_SERVICE)
+  local info = cm.getActiveNetworkInfo()
+  local isConnected = (info and info.isConnected())
+
+  if url:match("^http") and not isConnected then
+     Toast.makeText(activity, "التشغيل الصوتي يتطلب إنترنت 🌐", Toast.LENGTH_SHORT).show()
   end
 
   stopAudio()
@@ -2005,13 +2048,18 @@ function onKeyDown(keyCode, event)
         showListeningSection()
         return true
       end
-      if currentViewType == "surahs" or currentViewType == "azkar_categories" or currentViewType == "radio" or currentViewType == "listening_reciters" or currentViewType == "memorization" then
-         mainFlipper.setDisplayedChild(0)
+      if currentViewType == "surahs" or currentViewType == "memorization" or currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "rubs" then
+         mainFlipper.setDisplayedChild(4) -- Back to Quran Hub
+      elseif currentViewType == "listening_reciters" then
+         mainFlipper.setDisplayedChild(4) -- Back to Quran Hub
       else
-         mainFlipper.setDisplayedChild(3) -- Back to Index Selection (Juz, Page, Rub)
+         mainFlipper.setDisplayedChild(0) -- Back to Main Menu
       end
       return true
     elseif current == 3 then -- Index Selection
+      mainFlipper.setDisplayedChild(4) -- Back to Hub
+      return true
+    elseif current == 4 then -- Quran Hub
       mainFlipper.setDisplayedChild(0)
       return true
     elseif current > 0 then
@@ -2037,7 +2085,10 @@ end
 -- ==========================================
 
 function searchQuranOffline(query)
-  if not quranOfflineData or not quranOfflineData.text then return end
+  if not quranOfflineData or not quranOfflineData.text then
+    if #query > 2 then Toast.makeText(activity, "يجب تحميل بيانات الأوفلاين أولاً للبحث", Toast.LENGTH_SHORT).show() end
+    return
+  end
 
   local results = {}
   local listData = {}
@@ -2060,11 +2111,12 @@ function searchQuranOffline(query)
   end
   local normQuery = normalize(query)
 
+  local count = 0
   for sIdx, surah in ipairs(dText.surahs) do
     for aIdx, ayah in ipairs(surah.ayahs) do
       local match = false
-      if string.find(ayah.text, query, 1, true) then match = true
-      elseif string.find(normalize(ayah.text), normQuery, 1, true) then match = true
+      if string.find(ayah.text, query, 1, true) or string.find(normalize(ayah.text), normQuery, 1, true) then
+        match = true
       end
 
       if match then
@@ -2224,20 +2276,73 @@ end
 
 function checkAppUpdates()
   local githubVersionUrl = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/The-new-Quran-update/version.txt"
+  local githubCodeUrl = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/The-new-Quran-update/main.lua"
+
   httpGet(githubVersionUrl, function(success, body)
     if success then
       local latestVersion = body:gsub("%s+", "")
       if latestVersion ~= currentAppVersion then
         local builder = AlertDialog.Builder(activity)
-        builder.setTitle("تحديث جديد متوفر 🚀")
-        builder.setMessage("يتوفر إصدار جديد من التطبيق (" .. latestVersion .. "). هل ترغب في الانتقال لصفحة التحميل؟")
+        builder.setTitle("تحديث تلقائي متوفر 🚀")
+        builder.setMessage("يتوفر إصدار جديد (" .. latestVersion .. "). هل تريد تحميل التحديث وتطبيقه الآن؟")
         builder.setPositiveButton("تحديث الآن", function()
-          local intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ahanafy41/The-Holy-Quran"))
-          activity.startActivity(intent)
+          startDirectUpdate(githubCodeUrl, latestVersion)
         end)
         builder.setNegativeButton("لاحقاً", nil)
         builder.show()
       end
+    end
+  end)
+end
+
+function startDirectUpdate(url, newVersion)
+  local pd = ProgressDialog(activity)
+  pd.setTitle("جاري التحديث")
+  pd.setMessage("جاري تحميل ملف الكود الجديد...")
+  pd.setCancelable(false)
+  pd.show()
+
+  httpGet(url, function(success, body)
+    if success and #body > 1000 then -- Ensure it's a valid lua file (not 404 or empty)
+      local path = activity.getLuaDir() .. "/main.lua"
+      local tempPath = path .. ".tmp"
+
+      -- 1. Save to temp file
+      local file = io.open(tempPath, "w")
+      if file then
+        file:write(body)
+        file:close()
+
+        -- 2. Verify syntax if possible (Simple check: starts with 'require' or 'import')
+        if string.find(body, "import") or string.find(body, "require") then
+           -- 3. Replace current file
+           os.remove(path)
+           os.rename(tempPath, path)
+
+           pd.dismiss()
+           local builder = AlertDialog.Builder(activity)
+           builder.setTitle("تم التحديث بنجاح! 🎉")
+           builder.setMessage("تم تطبيق الإصدار " .. newVersion .. " بنجاح. يرجى إعادة تشغيل التطبيق لتفعيل التعديلات.")
+           builder.setPositiveButton("إعادة التشغيل الآن", function()
+             local intent = activity.getBaseContext().getPackageManager().getLaunchIntentForPackage(activity.getBaseContext().getPackageName())
+             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+             activity.finish()
+             activity.startActivity(intent)
+           end)
+           builder.setCancelable(false)
+           builder.show()
+        else
+           pd.dismiss()
+           Toast.makeText(activity, "فشل التحديث: الملف المحمل غير صالح", Toast.LENGTH_LONG).show()
+           os.remove(tempPath)
+        end
+      else
+        pd.dismiss()
+        Toast.makeText(activity, "فشل في فتح ملف التحديث للكتابة", Toast.LENGTH_LONG).show()
+      end
+    else
+      pd.dismiss()
+      Toast.makeText(activity, "فشل تحميل ملف التحديث: " .. tostring(body), Toast.LENGTH_LONG).show()
     end
   end)
 end
@@ -2251,19 +2356,34 @@ function startApp()
   if searchEdt then
     searchEdt.addTextChangedListener{ onTextChanged = function(s)
       local txt = tostring(s)
-      if currentViewType == "radio" then
-        updateRadioList(txt)
-      elseif currentViewType == "azkar_content" then
-        updateAzkarList(txt)
-      elseif currentViewType == "listening_reciters" then
-        displayReciters(txt)
-      elseif currentViewType == "listening_surahs" then
-        if updateReciterSurahsList then updateReciterSurahsList(txt) end
-      elseif (currentViewType == "surahs" or currentViewType == "quran_reading" or currentViewType == "memorization" or currentViewType == "juzs" or currentViewType == "pages") and #txt > 2 then
-        searchQuranOffline(txt)
-      else
-        updateList(txt)
+      if #txt == 0 then
+         if currentViewType == "radio" then updateRadioList("")
+         elseif currentViewType == "azkar_content" then updateAzkarList("")
+         elseif currentViewType == "listening_reciters" then displayReciters("")
+         elseif currentViewType == "listening_surahs" then updateReciterSurahsList("")
+         else updateList("") end
+         return
       end
+
+      -- Debounce search for performance
+      if searchTimer then searchTimer.cancel() end
+      searchTimer = Timer().schedule(TimerTask{run=function()
+        activity.runOnUiThread(Runnable{run=function()
+          if currentViewType == "radio" then
+            updateRadioList(txt)
+          elseif currentViewType == "azkar_content" then
+            updateAzkarList(txt)
+          elseif currentViewType == "listening_reciters" then
+            displayReciters(txt)
+          elseif currentViewType == "listening_surahs" then
+            if updateReciterSurahsList then updateReciterSurahsList(txt) end
+          elseif #txt > 2 then
+            searchQuranOffline(txt)
+          else
+            updateList(txt)
+          end
+        end})
+      end}, 500)
     end }
   end
 
@@ -2286,21 +2406,28 @@ function startApp()
   end
 
   -- Card Click Listeners
-  if btnGoQuran then btnGoQuran.onClick = function() showQuranSection() end end
-  if btnGoMemorize then btnGoMemorize.onClick = function() showMemorizationSection() end end
+  if btnGoQuranMain then btnGoQuranMain.onClick = function() mainFlipper.setDisplayedChild(4) end end
   if btnGoAzkar then btnGoAzkar.onClick = function() showAzkarSection() end end
   if btnGoRadio then btnGoRadio.onClick = function() showRadioSection() end end
-  if btnGoListening then btnGoListening.onClick = function() showListeningSection() end end
+
+  if btnHubRead then btnHubRead.onClick = function() showQuranSection() end end
+  if btnHubListen then btnHubListen.onClick = function() showListeningSection() end end
+  if btnHubMemorize then btnHubMemorize.onClick = function() showMemorizationSection() end end
 
 setAccessibility(toolbar_title, "تطبيق القرآن الكريم، الصفحة الرئيسية", "heading")
 setAccessibility(btn_settings, "فتح الإعدادات", "button")
 setAccessibility(btn_theme, "تبديل الوضع الليلي", "button")
 setAccessibility(btn_bookmarks, "عرض الإشارات المرجعية", "button")
-setAccessibility(btnGoQuran, "المصحف: تصفح وقراءة القرآن الكريم", "button")
-setAccessibility(btnGoMemorize, "المحفظ القرآني: قسم الحفظ والتكرار", "button")
+setAccessibility(btn_search, "فتح البحث السريع", "button")
+setAccessibility(btnGoQuranMain, "القرآن الكريم: تصفح، استماع، وتحفيظ", "button")
 setAccessibility(btnGoAzkar, "الأذكار: الأذكار النبوية وحصن المسلم", "button")
 setAccessibility(btnGoRadio, "الراديو: إذاعات القرآن الكريم المباشرة", "button")
-setAccessibility(btnGoListening, "الاستماع: الاستماع لسور كاملة بأصوات القراء", "button")
+
+setAccessibility(btnHubRead, "قراءة وتصفح القرآن", "button")
+setAccessibility(btnHubListen, "الاستماع للقراء", "button")
+setAccessibility(btnHubMemorize, "المحفظ المعلم", "button")
+setAccessibility(btnBackFromHub, "العودة للقائمة الرئيسية", "button")
+
 setAccessibility(btnIndexSurah, "عرض فهرس السور", "button")
 setAccessibility(btnIndexJuz, "عرض فهرس الأجزاء", "button")
 setAccessibility(btnIndexPage, "عرض فهرس الصفحات", "button")
@@ -2308,7 +2435,6 @@ setAccessibility(btnIndexRub, "عرض فهرس أرباع الأحزاب", "butt
 setAccessibility(searchEdt, "مربع بحث، اكتب اسم السورة أو الرقم", "edit")
 setAccessibility(btnPlay, "تشغيل المقطع الصوتي", "button")
 setAccessibility(btnMoreOptions, "المزيد من الخيارات (تفسير، مشاركة، نسخ)", "button")
-setAccessibility(btnQuickTafsir, "فتح تفسير الآية الحالية", "button")
 setAccessibility(btnRetry, "إعادة محاولة تحميل البيانات", "button")
 setAccessibility(btnBack, "زر العودة للقائمة السابقة", "button")
 setAccessibility(btnBackFromIndex, "زر العودة للقائمة الرئيسية", "button")
