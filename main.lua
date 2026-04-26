@@ -4,6 +4,8 @@ import "android.os.*"
 import "android.widget.*"
 import "android.view.*"
 import "android.content.*"
+import "android.view.inputmethod.InputMethodManager"
+import "android.net.wifi.WifiManager"
 import "android.media.MediaPlayer"
 import "android.media.AudioManager"
 import "android.graphics.Typeface" 
@@ -132,7 +134,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.2" -- تم التحديث للفحص الشامل
+local currentAppVersion = "1.0.3" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
@@ -668,7 +670,10 @@ function toggleSearch()
     if searchEdt then
       searchEdt.requestFocus()
       local imm = activity.getSystemService(Context.INPUT_METHOD_SERVICE)
-      imm.showSoftInput(searchEdt, InputMethodManager.SHOW_IMPLICIT)
+      -- Use pcall and fallback to constant to prevent crash if class not found
+      pcall(function()
+        imm.showSoftInput(searchEdt, InputMethodManager.SHOW_IMPLICIT or 1)
+      end)
     end
   else
     mainFlipper.setDisplayedChild(lastIndex or 0)
@@ -1802,6 +1807,11 @@ function setupPlayer(index)
     updateContinuousList()
     -- Smooth scroll to current ayah if applicable
     if index > 1 then continuousListView.setSelection(index - 1) end
+
+    -- In continuous mode, if player is already active, keep it going for the next ayah
+    if player.isPlaying then
+       setupMediaPlayer(ayah.audio)
+    end
   else
     ayahCard.setVisibility(View.VISIBLE)
     continuousListView.setVisibility(View.GONE)
@@ -1901,7 +1911,23 @@ function setupMediaPlayer(url)
   stopAudio()
   player.isPlaying = true
   player.currentAudioUrl = url
-  local success, err = pcall(function() player.media.setDataSource(url); player.media.prepareAsync() end)
+
+  local success, err = pcall(function()
+    -- Background playback support
+    player.media.setWakeMode(activity, PowerManager.PARTIAL_WAKE_LOCK)
+
+    -- Maintain Wifi connection if streaming
+    if url:match("^http") then
+      if not player.wifiLock then
+        local wm = activity.getSystemService(Context.WIFI_SERVICE)
+        player.wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "QuranAudioLock")
+      end
+      if player.wifiLock then player.wifiLock.acquire() end
+    end
+
+    player.media.setDataSource(url)
+    player.media.prepareAsync()
+  end)
   if not success then
     statusText.text = "خطأ في رابط الصوت"
     Toast.makeText(activity, "خطأ في تشغيل الصوت: " .. tostring(err), Toast.LENGTH_LONG).show()
@@ -1971,7 +1997,11 @@ function playPrev()
 end
 
 function stopAudio()
-  pcall(function() if player.media.isPlaying() then player.media.stop() end; player.media.reset() end)
+  pcall(function()
+    if player.media.isPlaying() then player.media.stop() end
+    player.media.reset()
+    if player.wifiLock and player.wifiLock.isHeld() then player.wifiLock.release() end
+  end)
   player.isPlaying = false; player.currentAudioUrl = nil; updatePlayButton(false)
 end
 
