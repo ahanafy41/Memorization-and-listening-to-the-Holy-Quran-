@@ -94,7 +94,7 @@ function getGlobalAyahNumber(surahNumber, ayahNumberInSurah)
     globalNumber = globalNumber + quranAyahsCount[i]
   end
   globalNumber = globalNumber + ayahNumberInSurah
-  return globalNumber
+  return tostring(math.floor(globalNumber))
 end
 
 local inspirationalVerses = {
@@ -147,7 +147,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.4" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
+local currentAppVersion = "1.0.5" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
