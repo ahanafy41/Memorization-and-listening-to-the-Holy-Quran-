@@ -2325,8 +2325,8 @@ function addAyahToBookmarks(ayah)
 end
 
 function checkAppUpdates()
-  local githubVersionUrl = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/The-new-Quran-update/version.txt"
-  local githubCodeUrl = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/The-new-Quran-update/main.lua"
+  local githubVersionUrl = "https://raw.githubusercontent.com/ahanafy41/Memorization-and-listening-to-the-Holy-Quran-/main/version.txt"
+  local githubCodeUrl = "https://raw.githubusercontent.com/ahanafy41/Memorization-and-listening-to-the-Holy-Quran-/main/main.lua"
 
   httpGet(githubVersionUrl, function(success, body)
     if success then
