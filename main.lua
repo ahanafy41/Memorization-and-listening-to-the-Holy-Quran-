@@ -89,11 +89,14 @@ local quranAyahsCount = {
 }
 
 function getGlobalAyahNumber(surahNumber, ayahNumberInSurah)
+  local sNum = tonumber(surahNumber)
+  local aNum = tonumber(ayahNumberInSurah)
+  if not sNum or not aNum then return "1" end
   local globalNumber = 0
-  for i = 1, surahNumber - 1 do
+  for i = 1, sNum - 1 do
     globalNumber = globalNumber + quranAyahsCount[i]
   end
-  globalNumber = globalNumber + ayahNumberInSurah
+  globalNumber = globalNumber + aNum
   return tostring(math.floor(globalNumber))
 end
 
@@ -147,7 +150,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.5" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
+local currentAppVersion = "1.0.6" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
