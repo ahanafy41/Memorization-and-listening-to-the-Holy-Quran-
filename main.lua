@@ -945,7 +945,7 @@ function loadDivisionDetails(type, number)
         if match then
           table.insert(player.currentSurahData, {
             text = ayah.text,
-            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(ayah.number or "1") .. ".mp3",
+            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(math.floor(tonumber(ayah.number) or 1)) .. ".mp3",
             numberInSurah = ayah.numberInSurah,
             surahName = surah.name,
             tafsir = dT1 and dT1.surahs[sIdx] and dT1.surahs[sIdx].ayahs[aIdx] and dT1.surahs[sIdx].ayahs[aIdx].text,
@@ -1687,7 +1687,7 @@ function loadSurahDetails(number, startAyah, endAyah)
       for i, ayah in ipairs(dText.ayahs) do
         if ayah.numberInSurah >= startAyah and ayah.numberInSurah <= endAyah then
           -- Construct Audio URL correctly for offline-text mode
-          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(ayah.number or "1") .. ".mp3"
+          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(math.floor(tonumber(ayah.number) or 1)) .. ".mp3"
 
           table.insert(player.currentSurahData, {
             text = ayah.text,
@@ -2172,7 +2172,7 @@ function searchQuranOffline(query)
       if match then
         table.insert(results, {
           text = ayah.text,
-          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
+          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(math.floor(tonumber(ayah.number) or 1)) .. ".mp3",
           numberInSurah = ayah.numberInSurah,
           surahName = surah.name,
           surahNumber = sIdx,
