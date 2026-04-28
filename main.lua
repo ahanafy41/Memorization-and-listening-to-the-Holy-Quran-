@@ -115,7 +115,7 @@ function setRandomQuote()
 end
 
 local player = {
-  media = MediaPlayer(),
+  media = nil,
   isPlaying = false,
   currentSurahData = nil,
   currentSurahName = "",
@@ -125,6 +125,7 @@ local player = {
   currentAudioUrl = nil,
   isIndividualZekr = false
 }
+pcall(function() player.media = MediaPlayer() end)
 
 local allSurahsData = {}
 local currentSurahsList = {}
@@ -944,7 +945,7 @@ function loadDivisionDetails(type, number)
         if match then
           table.insert(player.currentSurahData, {
             text = ayah.text,
-            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
+            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(math.floor(tonumber(ayah.number) or 1)) .. ".mp3",
             numberInSurah = ayah.numberInSurah,
             surahName = surah.name,
             tafsir = dT1 and dT1.surahs[sIdx] and dT1.surahs[sIdx].ayahs[aIdx] and dT1.surahs[sIdx].ayahs[aIdx].text,
@@ -1308,7 +1309,7 @@ function showZekrCounter(zekrItem)
 
     views.btnPlayZekr.onClick = function()
       local targetUrl = AzkarAudioBaseURL .. zekrItem.audio
-      if player.currentAudioUrl == targetUrl then
+      if player.currentAudioUrl == targetUrl and player.media then
         if player.media.isPlaying() then
           player.media.pause()
           player.isPlaying = false
@@ -1686,7 +1687,7 @@ function loadSurahDetails(number, startAyah, endAyah)
       for i, ayah in ipairs(dText.ayahs) do
         if ayah.numberInSurah >= startAyah and ayah.numberInSurah <= endAyah then
           -- Construct Audio URL correctly for offline-text mode
-          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3"
+          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(math.floor(tonumber(ayah.number) or 1)) .. ".mp3"
 
           table.insert(player.currentSurahData, {
             text = ayah.text,
@@ -1899,7 +1900,7 @@ function setupMediaPlayer(url)
     return
   end
 
-  -- Check connectivity but don't block (some might be cached)
+  -- Check connectivity but don't block
   local cm = activity.getSystemService(Context.CONNECTIVITY_SERVICE)
   local info = cm.getActiveNetworkInfo()
   local isConnected = (info and info.isConnected())
@@ -1913,6 +1914,7 @@ function setupMediaPlayer(url)
   player.currentAudioUrl = url
 
   local success, err = pcall(function()
+    player.media = MediaPlayer()
     -- Background playback support
     player.media.setWakeMode(activity, PowerManager.PARTIAL_WAKE_LOCK)
 
@@ -1928,19 +1930,33 @@ function setupMediaPlayer(url)
     player.media.setDataSource(url)
     player.media.prepareAsync()
   end)
+
   if not success then
     statusText.text = "خطأ في رابط الصوت"
     Toast.makeText(activity, "خطأ في تشغيل الصوت: " .. tostring(err), Toast.LENGTH_LONG).show()
+    player.isPlaying = false
     return
   end
 
   player.media.setOnErrorListener{ onError = function(mp, what, extra)
-    Toast.makeText(activity, "خطأ في مشغل الوسائط: " .. what, Toast.LENGTH_SHORT).show()
+    local errorMsg = "مشكلة في تحميل الصوت"
+    if what == -38 or what == 1 then errorMsg = "خطأ في حالة مشغل الصوت" end
+    Toast.makeText(activity, "خطأ في مشغل الوسائط: " .. errorMsg .. " (" .. what .. ")", Toast.LENGTH_SHORT).show()
+    player.isPlaying = false
+    updatePlayButton(false)
     return true
   end}
   
-  player.media.setOnPreparedListener{ onPrepared = function(mp) if player.isPlaying then mp.start(); updatePlayButton(true) end end }
-  player.media.setOnCompletionListener{ onCompletion = function(mp) onAyahComplete() end }
+  player.media.setOnPreparedListener{ onPrepared = function(mp)
+    if player.isPlaying and player.media then
+      mp.start()
+      updatePlayButton(true)
+    end
+  end}
+
+  player.media.setOnCompletionListener{ onCompletion = function(mp)
+    onAyahComplete()
+  end}
 end
 
 function onAyahComplete()
@@ -1954,7 +1970,7 @@ function onAyahComplete()
   player.currentRepeatCount = player.currentRepeatCount + 1
   if player.currentRepeatCount < config.repeat_ayah then
     statusText.text = "تكرار (" .. player.currentRepeatCount .. " من " .. config.repeat_ayah .. ")"
-    if config.delay_seconds > 0 then startDelay(function() player.media.start() end) else player.media.start() end
+    if config.delay_seconds > 0 then startDelay(function() if player.media then player.media.start() end end) else if player.media then player.media.start() end end
   else
     if player.currentAyahIndex < #player.currentSurahData then
       statusText.text = "الانتقال للتالي..."
@@ -1969,14 +1985,14 @@ end
 
 function startDelay(callback)
   statusText.text = "انتظار " .. config.delay_seconds .. " ثانية..."
-  Handler().postDelayed(Runnable{ run = function() if player.isPlaying then callback() end end }, config.delay_seconds * 1000)
+  Handler().postDelayed(Runnable{ run = function() if player.isPlaying and player.media then callback() end end }, config.delay_seconds * 1000)
 end
 
 function togglePlay()
-  if player.media.isPlaying() then
+  if player.media and player.media.isPlaying() then
     player.media.pause(); player.isPlaying = false; updatePlayButton(false)
     announceAccess("تم الإيقاف المؤقت")
-  else
+  elseif player.media then
     player.media.start(); player.isPlaying = true; updatePlayButton(true)
     announceAccess("تم استئناف التشغيل")
   end
@@ -1998,8 +2014,12 @@ end
 
 function stopAudio()
   pcall(function()
-    if player.media.isPlaying() then player.media.stop() end
-    player.media.reset()
+    if player.media then
+      if player.media.isPlaying() then player.media.stop() end
+      player.media.reset()
+      player.media.release()
+      player.media = nil
+    end
     if player.wifiLock and player.wifiLock.isHeld() then player.wifiLock.release() end
   end)
   player.isPlaying = false; player.currentAudioUrl = nil; updatePlayButton(false)
@@ -2152,7 +2172,7 @@ function searchQuranOffline(query)
       if match then
         table.insert(results, {
           text = ayah.text,
-          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
+          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. tostring(math.floor(tonumber(ayah.number) or 1)) .. ".mp3",
           numberInSurah = ayah.numberInSurah,
           surahName = surah.name,
           surahNumber = sIdx,
