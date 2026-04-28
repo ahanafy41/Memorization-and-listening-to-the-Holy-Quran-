@@ -84,6 +84,22 @@ local quranSurahNames = {
   "الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"
 }
 
+local quranAyahsCount = {
+  7, 286, 200, 176, 120, 165, 206, 75, 129, 109, 123, 111, 43, 52, 99, 128, 111, 110, 98, 135, 112, 78, 118, 64, 77, 227, 93, 88, 69, 60, 34, 30, 73, 54, 45, 83, 182, 88, 75, 85, 54, 53, 89, 59, 37, 35, 38, 29, 18, 45, 60, 49, 62, 55, 78, 96, 29, 22, 24, 13, 14, 11, 11, 18, 12, 12, 30, 52, 52, 44, 28, 28, 20, 56, 40, 31, 50, 40, 46, 42, 29, 19, 36, 25, 22, 17, 19, 26, 30, 20, 15, 21, 11, 8, 8, 19, 5, 8, 8, 11, 11, 8, 3, 9, 5, 4, 7, 3, 6, 3, 5, 4, 5, 6
+}
+
+function getGlobalAyahNumber(surahNumber, ayahNumberInSurah)
+  local sNum = tonumber(surahNumber)
+  local aNum = tonumber(ayahNumberInSurah)
+  if not sNum or not aNum then return "1" end
+  local globalNumber = 0
+  for i = 1, sNum - 1 do
+    globalNumber = globalNumber + quranAyahsCount[i]
+  end
+  globalNumber = globalNumber + aNum
+  return tostring(math.floor(globalNumber))
+end
+
 local inspirationalVerses = {
   "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ",
   "وَقُلْ رَبِّ زِدْنِي عِلْمًا",
@@ -134,12 +150,28 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.3" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
+local currentAppVersion = "1.0.6" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
 local currentSelectedReciter = nil
+local viewHistory = {}
 local lastIndex = 0
+
+function pushView(index)
+  if #viewHistory == 0 or viewHistory[#viewHistory] ~= index then
+    table.insert(viewHistory, index)
+  end
+end
+
+function popView()
+  if #viewHistory > 0 then
+    local idx = viewHistory[#viewHistory]
+    table.remove(viewHistory)
+    return idx
+  end
+  return 0
+end
 local BaseURL = "https://api.alquran.cloud/v1"
 local AzkarURL = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/feat/refactor-hisn-al-muslim/azkar-data/azkar.json"
 local AzkarAudioBaseURL = "https://raw.githubusercontent.com/ahanafy41/The-Holy-Quran/feat/refactor-hisn-al-muslim/azkar-data"
@@ -460,12 +492,13 @@ layout = {
     -- PAGE 2: PLAYER / READING MODE
     {
       LinearLayout, orientation = "vertical", layout_width = "fill", layout_height = "fill", padding = "16dp", gravity = "center_horizontal", id = "playerPage",
-      { ImageView, id = "sectionIcon", layout_width = "80dp", layout_height = "80dp", layout_marginTop = "10dp", layout_marginBottom = "10dp", visibility = View.GONE },
       {
         LinearLayout, orientation = "horizontal", layout_width = "fill", gravity = "center_vertical", layout_marginBottom = "8dp",
+        { ImageView, src = "@android:drawable/ic_menu_revert", layout_width = "32dp", layout_height = "32dp", id = "btnBackTop", onClick = function() stopAudio(); mainFlipper.setDisplayedChild(popView()) end },
         { TextView, id = "playerTitle", text = "...", textSize = "24sp", style = "bold", layout_weight = 1, gravity = "center" },
-        { ImageView, src = "@android:drawable/ic_menu_more", layout_width = "36dp", layout_height = "36dp", id = "btnMoreOptions", onClick = function() showAyahOptions(player.currentAyahIndex) end }
+        { ImageView, src = "@android:drawable/ic_menu_more", layout_width = "32dp", layout_height = "32dp", id = "btnMoreOptions", onClick = function() showAyahOptions(player.currentAyahIndex) end }
       },
+      { ImageView, id = "sectionIcon", layout_width = "80dp", layout_height = "80dp", layout_marginTop = "10dp", layout_marginBottom = "10dp", visibility = View.GONE },
       { TextView, id = "reciterNameDisplay", text = "...", textSize = "16sp", gravity = "center", layout_marginBottom = "16dp" },
       {
         FrameLayout, layout_width = "fill", layout_height = "0", layout_weight = 1,
@@ -482,8 +515,7 @@ layout = {
           { Button, text = "▶", id = "btnPlay", layout_width = "70dp", layout_height = "70dp", textSize = "30sp", layout_marginLeft = "20dp", layout_marginRight = "20dp", onClick = function() togglePlay() end },
           { Button, text = "التالي", id = "btnNext", layout_width = "90dp", textColor = "#FFFFFF", style = "bold", onClick = function() playNext() end }
         }
-      },
-      { Button, text = "عودة للقائمة", id = "btnBack", layout_marginTop = "16dp", elevation = "0", onClick = function() stopAudio(); mainFlipper.setDisplayedChild(lastIndex or 1) end }
+      }
     },
 
     -- PAGE 3: INDEX TYPE SELECTION (تم تبسيطه)
@@ -590,7 +622,7 @@ function applyTheme()
   addLongClick(btnHubMemorize, "المحفظ لتعليم وحفظ القرآن")
 
   if btnBackFromIndex then addLongClick(btnBackFromIndex, "العودة للقائمة السابقة") end
-  if btnBack then addLongClick(btnBack, "العودة لقائمة السور أو الأقسام") end
+  if btnBackTop then addLongClick(btnBackTop, "العودة لقائمة السور أو الأقسام") end
   if btnPlay then addLongClick(btnPlay, "تشغيل أو إيقاف المقطع الصوتي") end
   if btnNext then addLongClick(btnNext, "الذهاب للآية أو العنصر التالي") end
   if btnPrev then addLongClick(btnPrev, "العودة للآية أو العنصر السابق") end
@@ -625,7 +657,7 @@ function applyTheme()
   setDesign(btnNext, colors.primary, 24)
   setCircleDesign(btnPlay, colors.accent)
   btnPlay.setTextColor(Color.parseColor(colors.text_title))
-  if btnBack then btnBack.setBackgroundColor(0); btnBack.setTextColor(Color.parseColor(colors.text_body)) end
+  if btnBackTop then btnBackTop.setColorFilter(Color.parseColor(colors.primary)) end
   if btnMoreOptions then btnMoreOptions.setColorFilter(Color.parseColor(colors.primary)) end
   
   if continuousListView then continuousListView.setBackgroundColor(Color.parseColor(colors.card_bg)) end
@@ -664,7 +696,7 @@ end
 
 function toggleSearch()
   if mainFlipper.getDisplayedChild() ~= 1 then
-    lastIndex = mainFlipper.getDisplayedChild()
+    pushView(mainFlipper.getDisplayedChild())
     mainFlipper.setDisplayedChild(1)
     if listTitle then listTitle.text = "البحث السريع" end
     if searchEdt then
@@ -676,7 +708,7 @@ function toggleSearch()
       end)
     end
   else
-    mainFlipper.setDisplayedChild(lastIndex or 0)
+    mainFlipper.setDisplayedChild(popView())
   end
 end
 
@@ -942,9 +974,10 @@ function loadDivisionDetails(type, number)
         end
 
         if match then
+          local globalNumber = ayah.number or getGlobalAyahNumber(sIdx, ayah.numberInSurah)
           table.insert(player.currentSurahData, {
             text = ayah.text,
-            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
+            audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. globalNumber .. ".mp3",
             numberInSurah = ayah.numberInSurah,
             surahName = surah.name,
             tafsir = dT1 and dT1.surahs[sIdx] and dT1.surahs[sIdx].ayahs[aIdx] and dT1.surahs[sIdx].ayahs[aIdx].text,
@@ -956,7 +989,7 @@ function loadDivisionDetails(type, number)
 
     if #player.currentSurahData > 0 then
       setMainViewState("content")
-      lastIndex = mainFlipper.getDisplayedChild()
+      pushView(mainFlipper.getDisplayedChild())
       mainFlipper.setDisplayedChild(2)
       setupPlayer(1)
       return
@@ -993,7 +1026,7 @@ function loadDivisionDetails(type, number)
       end
 
       if #player.currentSurahData > 0 then
-        lastIndex = mainFlipper.getDisplayedChild()
+        pushView(mainFlipper.getDisplayedChild())
         mainFlipper.setDisplayedChild(2)
         setupPlayer(1)
       end
@@ -1007,11 +1040,13 @@ function showMemorizationSection()
   currentViewType = "memorization"
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "المحفظ القرآني - اختر سورة"
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(1)
   loadSurahs()
 end
 
 function showQuranSection()
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(3) -- Index Type Selection
   announceAccess("اختر طريقة تصفح القرآن الكريم")
 end
@@ -1020,6 +1055,7 @@ function showQuranList(type)
   currentViewType = type
   listTitle.setVisibility(View.VISIBLE)
   if searchEdt then searchEdt.text = ""; searchEdt.setHint("بحث...") end
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(1)
 
   if type == "surahs" then
@@ -1113,6 +1149,7 @@ function showAzkarSection()
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "الأذكار - حصن المسلم"
   if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن قسم...") end
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(1)
   loadAzkarCategories()
 end
@@ -1218,7 +1255,7 @@ function updateAzkarList(filter)
 end
 
 function playAzkarAudio(audioPath, title)
-  lastIndex = mainFlipper.getDisplayedChild()
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(2)
 
   player.isIndividualZekr = false
@@ -1357,6 +1394,7 @@ function showRadioSection()
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "إذاعات القرآن الكريم"
   if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن إذاعة...") end
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(1)
   loadRadios()
 end
@@ -1440,7 +1478,7 @@ function playRadio(radioItem)
   player.currentSurahData = {}
 
   -- Use player page for radio too
-  lastIndex = mainFlipper.getDisplayedChild()
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(2)
 
   playerTitle.text = radioItem.title
@@ -1459,6 +1497,7 @@ function showListeningSection()
   listTitle.setVisibility(View.VISIBLE)
   listTitle.text = "الاستماع - اختر القارئ"
   if searchEdt then searchEdt.text = ""; searchEdt.setHint("ابحث عن قارئ...") end
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(1)
   loadAllReciters()
 end
@@ -1593,7 +1632,7 @@ function playFullSurah(reciter, selectedMoshaf, surah_num, surah_name)
   local url = server .. s_num_str .. ".mp3"
 
   currentViewType = "listening_player"
-  lastIndex = mainFlipper.getDisplayedChild()
+  pushView(mainFlipper.getDisplayedChild())
   mainFlipper.setDisplayedChild(2)
 
   playerTitle.text = surah_name
@@ -1686,7 +1725,8 @@ function loadSurahDetails(number, startAyah, endAyah)
       for i, ayah in ipairs(dText.ayahs) do
         if ayah.numberInSurah >= startAyah and ayah.numberInSurah <= endAyah then
           -- Construct Audio URL correctly for offline-text mode
-          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3"
+          local globalNumber = ayah.number or getGlobalAyahNumber(number, ayah.numberInSurah)
+          local audioUrl = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. globalNumber .. ".mp3"
 
           table.insert(player.currentSurahData, {
             text = ayah.text,
@@ -1698,7 +1738,7 @@ function loadSurahDetails(number, startAyah, endAyah)
         end
       end
       if #player.currentSurahData > 0 then
-        lastIndex = mainFlipper.getDisplayedChild()
+        pushView(mainFlipper.getDisplayedChild())
         mainFlipper.setDisplayedChild(2)
         setupPlayer(1)
         return
@@ -1761,7 +1801,7 @@ function loadSurahDetails(number, startAyah, endAyah)
     end
     
     if #player.currentSurahData > 0 then
-      lastIndex = mainFlipper.getDisplayedChild()
+      pushView(mainFlipper.getDisplayedChild())
       mainFlipper.setDisplayedChild(2)
       setupPlayer(1) 
     else
@@ -2068,7 +2108,7 @@ function onKeyDown(keyCode, event)
     local current = mainFlipper.getDisplayedChild()
     if current == 2 then -- Player Page
       stopAudio()
-      mainFlipper.setDisplayedChild(lastIndex or 1)
+      mainFlipper.setDisplayedChild(popView())
       return true
     elseif current == 1 then -- List Page
       if currentViewType == "azkar_content" then
@@ -2083,7 +2123,7 @@ function onKeyDown(keyCode, event)
       elseif currentViewType == "listening_reciters" then
          mainFlipper.setDisplayedChild(4) -- Back to Quran Hub
       else
-         mainFlipper.setDisplayedChild(0) -- Back to Main Menu
+         mainFlipper.setDisplayedChild(popView()) -- Back based on history
       end
       return true
     elseif current == 3 then -- Index Selection
@@ -2093,7 +2133,7 @@ function onKeyDown(keyCode, event)
       mainFlipper.setDisplayedChild(0)
       return true
     elseif current > 0 then
-      mainFlipper.setDisplayedChild(0)
+      mainFlipper.setDisplayedChild(popView())
       announceAccess("العودة للقائمة الرئيسية")
       return true
     end
@@ -2116,7 +2156,7 @@ end
 
 function searchQuranOffline(query)
   if not quranOfflineData or not quranOfflineData.text then
-    if #query > 2 then Toast.makeText(activity, "يجب تحميل بيانات الأوفلاين أولاً للبحث", Toast.LENGTH_SHORT).show() end
+    -- تم إلغاء هذه الرسالة المزعجة لأنه تم تحويله للبحث العادي في حالة عدم وجود أوفلاين
     return
   end
 
@@ -2150,9 +2190,10 @@ function searchQuranOffline(query)
       end
 
       if match then
+        local globalNumber = ayah.number or getGlobalAyahNumber(sIdx, ayah.numberInSurah)
         table.insert(results, {
           text = ayah.text,
-          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. ayah.number .. ".mp3",
+          audio = "https://cdn.islamic.network/quran/audio/128/" .. config.current_reciter .. "/" .. globalNumber .. ".mp3",
           numberInSurah = ayah.numberInSurah,
           surahName = surah.name,
           surahNumber = sIdx,
@@ -2178,7 +2219,7 @@ function searchQuranOffline(query)
       player.currentSurahData = {res}
       player.currentSurahName = res.surahName
       player.currentSurahNumber = res.surahNumber
-      lastIndex = 1
+      pushView(mainFlipper.getDisplayedChild())
       mainFlipper.setDisplayedChild(2)
       setupPlayer(1)
 
@@ -2407,8 +2448,12 @@ function startApp()
             displayReciters(txt)
           elseif currentViewType == "listening_surahs" then
             if updateReciterSurahsList then updateReciterSurahsList(txt) end
-          elseif #txt > 2 then
-            searchQuranOffline(txt)
+          elseif currentViewType == "surahs" then
+            if quranOfflineData and quranOfflineData.text and #txt > 2 then
+              searchQuranOffline(txt)
+            else
+              updateList(txt)
+            end
           else
             updateList(txt)
           end
@@ -2466,7 +2511,7 @@ setAccessibility(searchEdt, "مربع بحث، اكتب اسم السورة أو
 setAccessibility(btnPlay, "تشغيل المقطع الصوتي", "button")
 setAccessibility(btnMoreOptions, "المزيد من الخيارات (تفسير، مشاركة، نسخ)", "button")
 setAccessibility(btnRetry, "إعادة محاولة تحميل البيانات", "button")
-setAccessibility(btnBack, "زر العودة للقائمة السابقة", "button")
+setAccessibility(btnBackTop, "زر العودة للقائمة السابقة", "button")
 setAccessibility(btnBackFromIndex, "زر العودة للقائمة الرئيسية", "button")
 
   pcall(function() ayahText.setLineSpacing(0, 1.4) end)
