@@ -135,7 +135,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.4" -- إصدار تجربة المكفوفين المتقدمة
+local currentAppVersion = "1.0.5" -- إصلاح أخطاء التشغيل والتصفح (OTA Update)
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
@@ -1851,7 +1851,7 @@ function setupPlayer(index)
     announceAccess(textToAnnounce)
     setupMediaPlayer(ayah.audio)
 
-    ayahText.onLongClickListener = function()
+    ayahText.onLongClick = function()
       showAyahOptions(index)
       return true
     end
@@ -1868,7 +1868,7 @@ function updateContinuousList()
     {
       TextView, id = "tv_ayah", textSize = (config.font_size + 2) .. "sp", textColor = Color.parseColor(colors.text_title),
       gravity = "right", padding = "16dp", layout_width = "fill",
-      typeface = Typeface.DEFAULT_BOLD, lineSpacingMultiplier = 1.4
+      typeface = Typeface.DEFAULT_BOLD
     }
   }
 
