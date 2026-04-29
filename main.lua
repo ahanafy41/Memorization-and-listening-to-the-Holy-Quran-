@@ -135,7 +135,7 @@ local currentRadiosList = {}
 local allAzkarData = {}
 local allRadiosData = {}
 local currentAzkarCategory = nil
-local currentAppVersion = "1.0.3" -- تم التحديث لإصلاح خطأ البحث وتشغيل الخلفية
+local currentAppVersion = "1.0.4" -- إصدار تجربة المكفوفين المتقدمة
 local currentViewType = "surahs"
 local allRecitersData = {}
 local currentRecitersList = {}
@@ -899,10 +899,10 @@ function updateList(filter)
   surahList.setOnItemClickListener(AdapterView.OnItemClickListener{
     onItemClick = function(parent, view, position, id)
       local item = filteredSurahs[position + 1]
-      if currentViewType == "surahs" or currentViewType == "memorization" then
-        showRangeSelectionDialog(item)
-      elseif currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" or currentViewType == "quran_reading" then
-        handleDivisionClick(item)
+      if currentViewType == "memorization" then
+        showRangeSelectionDialog(item) -- يفتح واجهة تحديد الآيات للحفظ فقط
+      elseif currentViewType == "surahs" or currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "hizbs" or currentViewType == "rubs" or currentViewType == "quran_reading" then
+        handleDivisionClick(item) -- يفتح القراءة مباشرة للتصفح
       elseif currentViewType == "azkar_categories" then
         showAzkarContent(item.index)
       end
@@ -919,6 +919,8 @@ function handleDivisionClick(item)
     loadDivisionDetails("page", item.number)
   elseif currentViewType == "rubs" then
     loadDivisionDetails("hizbQuarter", item.number)
+  elseif currentViewType == "hizbs" then
+    loadDivisionDetails("hizb", item.number)
   end
 end
 
@@ -931,7 +933,14 @@ function loadDivisionDetails(type, number)
     local dT2 = quranOfflineData.jalalayn
 
     player.currentSurahData = {}
-    player.currentSurahName = (type == "juz" and "الجزء " or (type == "page" and "صفحة " or "الربع ")) .. number
+
+    local titlePrefix = ""
+    if type == "juz" then titlePrefix = "الجزء "
+    elseif type == "page" then titlePrefix = "صفحة "
+    elseif type == "hizbQuarter" then titlePrefix = "الربع "
+    elseif type == "hizb" then titlePrefix = "الحزب " end
+
+    player.currentSurahName = titlePrefix .. number
     player.currentSurahNumber = number
 
     for sIdx, surah in ipairs(dText.surahs) do
@@ -940,6 +949,9 @@ function loadDivisionDetails(type, number)
         if type == "juz" and ayah.juz == number then match = true
         elseif type == "page" and ayah.page == number then match = true
         elseif type == "hizbQuarter" and ayah.hizbQuarter == number then match = true
+        -- The offline data has `hizbQuarter`. There are 4 quarters per hizb, so hizb 1 has quarters 1,2,3,4.
+        -- We calculate hizb from hizbQuarter: math.ceil(ayah.hizbQuarter / 4)
+        elseif type == "hizb" and math.ceil((ayah.hizbQuarter or 1) / 4) == number then match = true
         end
 
         if match then
@@ -1852,21 +1864,24 @@ function updateContinuousList()
   local listData = {}
   local colors = theme.colors
   local itemLayout = {
-    LinearLayout, layout_width = "fill", padding = "8dp", orientation = "vertical",
+    LinearLayout, layout_width = "fill", padding = "12dp", orientation = "vertical",
     {
-      TextView, id = "tv_ayah", textSize = config.font_size .. "sp", textColor = Color.parseColor(colors.text_title),
-      gravity = "right", padding = "16dp", layout_width = "fill"
-    },
-    {
-       LinearLayout, layout_width = "fill", orientation = "horizontal", gravity = "left", padding = "8dp",
-       { TextView, id = "tv_num", textSize = "14sp", textColor = Color.parseColor(colors.primary), style = "bold" },
-       { View, layout_weight = 1 },
-       { ImageView, id = "btnPlayAyah", src = "@android:drawable/ic_media_play", layout_width = "32dp", layout_height = "32dp", colorFilter = Color.parseColor(colors.primary) }
+      TextView, id = "tv_ayah", textSize = (config.font_size + 2) .. "sp", textColor = Color.parseColor(colors.text_title),
+      gravity = "right", padding = "16dp", layout_width = "fill",
+      typeface = Typeface.DEFAULT_BOLD, lineSpacingMultiplier = 1.4
     }
   }
 
   for i, a in ipairs(player.currentSurahData) do
-    table.insert(listData, { tv_ayah = a.text .. " ﴿ " .. a.numberInSurah .. " ﴾", tv_num = (a.surahName or player.currentSurahName) .. " - آية " .. a.numberInSurah })
+    local ayahNumStr = tostring(math.floor(tonumber(a.numberInSurah) or 1))
+    local surahNameStr = a.surahName or player.currentSurahName or "السورة"
+    local accessibleText = surahNameStr .. "، الآية " .. ayahNumStr .. ". " .. a.text
+    table.insert(listData, {
+      tv_ayah = {
+        text = a.text .. " ﴿ " .. ayahNumStr .. " ﴾",
+        contentDescription = accessibleText
+      }
+    })
   end
 
   local adapter = LuaAdapter(activity, listData, itemLayout)
@@ -2089,6 +2104,7 @@ function onKeyDown(keyCode, event)
     if current == 2 then -- Player Page
       stopAudio()
       mainFlipper.setDisplayedChild(lastIndex or 1)
+      announceAccess("تم إيقاف القراءة، العودة للقائمة السابقة")
       return true
     elseif current == 1 then -- List Page
       if currentViewType == "azkar_content" then
@@ -2098,16 +2114,22 @@ function onKeyDown(keyCode, event)
         showListeningSection()
         return true
       end
-      if currentViewType == "surahs" or currentViewType == "memorization" or currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "rubs" then
+      if currentViewType == "surahs" or currentViewType == "memorization" or currentViewType == "juzs" or currentViewType == "pages" or currentViewType == "rubs" or currentViewType == "hizbs" or currentViewType == "quran_reading" then
          mainFlipper.setDisplayedChild(4) -- Back to Quran Hub
       elseif currentViewType == "listening_reciters" then
          mainFlipper.setDisplayedChild(4) -- Back to Quran Hub
       else
          mainFlipper.setDisplayedChild(0) -- Back to Main Menu
       end
+      announceAccess("العودة للقائمة السابقة")
       return true
     elseif current == 3 then -- Index Selection
       mainFlipper.setDisplayedChild(4) -- Back to Hub
+      announceAccess("العودة للقائمة السابقة")
+      return true
+    elseif current == 4 then -- Quran Hub
+      mainFlipper.setDisplayedChild(0) -- Back to Main Menu
+      announceAccess("العودة للقائمة الرئيسية")
       return true
     elseif current == 4 then -- Quran Hub
       mainFlipper.setDisplayedChild(0)
@@ -2224,25 +2246,65 @@ function showAyahOptions(index)
   if not ayah then return end
 
   local colors = theme.colors
-  local options = {"📖 عرض التفسير", "📋 نسخ الآية", "📤 مشاركة", "🔖 إضافة للإشارات"}
+  local ayahNumStr = tostring(math.floor(tonumber(ayah.numberInSurah) or 1))
+  local options = {
+    "📖 عرض التفسير",
+    "ℹ️ معلومات الآية",
+    "📋 نسخ الآية (بالتشكيل)",
+    "📋 نسخ الآية (بدون تشكيل)",
+    "🔁 تكرار الآية (للحفظ)",
+    "🎧 تشغيل الآية",
+    "📤 مشاركة",
+    "🔖 إضافة للإشارات"
+  }
 
   local builder = AlertDialog.Builder(activity)
-  builder.setTitle("خيارات الآية " .. ayah.numberInSurah)
+  builder.setTitle("خيارات الآية " .. ayahNumStr)
   builder.setItems(options, function(dialog, which)
     if which == 0 then -- Tafsir
       showTafsirDialog(ayah)
-    elseif which == 1 then -- Copy
+    elseif which == 1 then -- Ayah Info
+      local infoText = "سورة: " .. (ayah.surahName or player.currentSurahName or "غير معروف") .. "\n"
+      infoText = infoText .. "الآية: " .. ayahNumStr .. "\n"
+      if ayah.juz then infoText = infoText .. "الجزء: " .. tostring(ayah.juz) .. "\n" end
+      if ayah.hizbQuarter then infoText = infoText .. "الربع: " .. tostring(ayah.hizbQuarter) .. "\n" end
+
+      local infoBuilder = AlertDialog.Builder(activity)
+      infoBuilder.setTitle("معلومات الآية")
+      infoBuilder.setMessage(infoText)
+      infoBuilder.setPositiveButton("موافق", nil)
+      infoBuilder.show()
+      announceAccess("تم فتح معلومات الآية: " .. infoText:gsub("\n", ". "))
+    elseif which == 2 then -- Copy with Tashkeel
       local cm = activity.getSystemService(Context.CLIPBOARD_SERVICE)
       local cd = ClipData.newPlainText("Ayah", ayah.text)
       cm.setPrimaryClip(cd)
-      Toast.makeText(activity, "تم النسخ ✔", Toast.LENGTH_SHORT).show()
-    elseif which == 2 then -- Share
+      Toast.makeText(activity, "تم نسخ الآية بالتشكيل ✔", Toast.LENGTH_SHORT).show()
+      announceAccess("تم نسخ الآية")
+    elseif which == 3 then -- Copy without Tashkeel
+      local textNoTashkeel = ayah.text:gsub("[%z\1-\127\194-\244][\128-\191]*", function(c)
+        -- Basic removal of Arabic diacritics (Harakat)
+        local code = utf8.codepoint(c)
+        if code and code >= 0x064B and code <= 0x0652 then return "" else return c end
+      end)
+      local cm = activity.getSystemService(Context.CLIPBOARD_SERVICE)
+      local cd = ClipData.newPlainText("Ayah", textNoTashkeel)
+      cm.setPrimaryClip(cd)
+      Toast.makeText(activity, "تم نسخ الآية بدون تشكيل ✔", Toast.LENGTH_SHORT).show()
+      announceAccess("تم نسخ الآية بدون تشكيل")
+    elseif which == 4 then -- Repeat
+      Toast.makeText(activity, "سيتم تكرار هذه الآية", Toast.LENGTH_SHORT).show()
+      -- Future integration for repeat mode
+    elseif which == 5 then -- Play Ayah
+      playAyahInContinuous(index)
+    elseif which == 6 then -- Share
       shareAyah(ayah)
-    elseif which == 3 then -- Bookmark
+    elseif which == 7 then -- Bookmark
       addAyahToBookmarks(ayah)
     end
   end)
   builder.show()
+  announceAccess("تم فتح قائمة خيارات الآية " .. ayahNumStr)
 end
 
 function showTafsirDialog(ayah)
