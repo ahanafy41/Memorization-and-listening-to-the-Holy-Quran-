@@ -493,6 +493,7 @@ layout = {
       { TextView, text = "اختر طريقة التصفح", textSize = "24sp", style = "bold", layout_marginBottom = "30dp", id = "indexTitle" },
       IndexButton("btnIndexSurah", "السور", function() showQuranList("surahs") end),
       IndexButton("btnIndexJuz", "الأجزاء", function() showQuranList("juzs") end),
+      IndexButton("btnIndexHizb", "الأحزاب", function() showQuranList("hizbs") end),
       IndexButton("btnIndexPage", "الصفحات", function() showQuranList("pages") end),
       IndexButton("btnIndexRub", "أرباع الأحزاب", function() showQuranList("rubs") end),
       { Button, text = "عودة", id = "btnBackFromIndex", layout_marginTop = "20dp", onClick = function() mainFlipper.setDisplayedChild(4) end },
@@ -602,6 +603,8 @@ function applyTheme()
   btnIndexSurah.setTextColor(Color.parseColor(colors.text_title))
   setDesign(btnIndexJuz, colors.card_bg, dimens.radius)
   btnIndexJuz.setTextColor(Color.parseColor(colors.text_title))
+  setDesign(btnIndexHizb, colors.card_bg, dimens.radius)
+  btnIndexHizb.setTextColor(Color.parseColor(colors.text_title))
   setDesign(btnIndexPage, colors.card_bg, dimens.radius)
   btnIndexPage.setTextColor(Color.parseColor(colors.text_title))
   setDesign(btnIndexRub, colors.card_bg, dimens.radius)
@@ -1041,6 +1044,9 @@ function showQuranList(type)
   elseif type == "juzs" then
     listTitle.text = "القرآن الكريم - الأجزاء"
     loadJuzs()
+  elseif type == "hizbs" then
+    listTitle.text = "القرآن الكريم - الأحزاب"
+    loadHizbs()
   elseif type == "pages" then
     listTitle.text = "القرآن الكريم - الصفحات"
     loadPages()
@@ -2542,6 +2548,7 @@ setAccessibility(btnBackFromHub, "العودة للقائمة الرئيسية",
 
 setAccessibility(btnIndexSurah, "عرض فهرس السور", "button")
 setAccessibility(btnIndexJuz, "عرض فهرس الأجزاء", "button")
+setAccessibility(btnIndexHizb, "عرض فهرس الأحزاب", "button")
 setAccessibility(btnIndexPage, "عرض فهرس الصفحات", "button")
 setAccessibility(btnIndexRub, "عرض فهرس أرباع الأحزاب", "button")
 setAccessibility(searchEdt, "مربع بحث، اكتب اسم السورة أو الرقم", "edit")
